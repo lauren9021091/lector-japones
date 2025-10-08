@@ -569,9 +569,24 @@ function hideTooltipFor(node){
     else if (isPaused) { try { synth.resume(); } catch(e){} isPaused = false; }
     else { if(!sentences.length){ renderSpanishFromRaw(document.getElementById("text2").innerText||""); renderJapaneseFromRaw(document.getElementById("text1").innerText||""); } currentSentence=0; isPaused=false; speakSentence(currentSentence); }
   }
-  function nextSentence(){ if(currentSentence < sentences.length-1){ currentSentence++; synth.cancel(); speakSentence(currentSentence); } }
-  function prevSentence(){ if(currentSentence > 0){ currentSentence--; synth.cancel(); speakSentence(currentSentence); } }
-  function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
+  function nextSentence() {
+  if (currentSentence < sentences.length - 1) {
+    currentSentence++;
+    translationIndex = Math.min(currentSentence, allEsSentences.length - 1); // 🔧 sincroniza
+    synth.cancel();
+    speakSentence(currentSentence);
+  }
+}
+
+function prevSentence() {
+  if (currentSentence > 0) {
+    currentSentence--;
+    translationIndex = Math.min(currentSentence, allEsSentences.length - 1); // 🔧 sincroniza
+    synth.cancel();
+    speakSentence(currentSentence);
+  }
+}
+function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
 
   /* ---------------------------
      Events: clicks, keyboard, buttons
@@ -634,6 +649,7 @@ function hideTooltipFor(node){
   </script>
 </body>
 </html>
+
 
 
 
