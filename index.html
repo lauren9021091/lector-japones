@@ -1,35 +1,472 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>Lector Japonés - Comparativo y Voz</title>
-  <!-- Librerías desde CDN -->
+
+  <!-- ============================================================
+       Librerías externas (CDN)
+       - pdf.js para leer PDF
+       - jszip + epub.js para EPUB (lectura básica)
+       - kuromoji para tokenización y lecturas (furigana)
+       ============================================================ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
+
+  <!-- ============================================================
+       Estilos (conservando diseño moderno)
+       ============================================================ -->
   <style>
-    body {font-family: Inter, sans-serif; background: #f7f8fc; margin:0; padding:0;}
-    h1 {text-align:center; margin-top:20px;}
+    :root{
+      --bg: #fbfbfd;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --accent: #6c8cff;
+      --border: #e6e9ef;
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, #f6f8ff 0%, var(--bg) 100%);
+      color: #111827;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1.page-title{ margin: 12px 20px 8px; font-size: 1.15rem; font-weight: 700; color: #0b1220; }
+
+    /* Top bar */
+    #top-bar{
+      display:flex; gap:1.5rem; align-items:center;
+      padding:14px 20px; border-bottom:1px solid var(--border);
+      background:var(--panel); position:sticky; top:0; z-index:999;
+      box-shadow:0 1px 6px rgba(12,20,60,0.04);
+    }
+    #top-bar label{ font-weight:600; color:#0f172a; margin-right:8px; }
+
+    /* Container */
+    #container{ display:flex; gap:12px; padding:20px; height:calc(100vh - 25vh - 120px); }
+    #text1, #text2{
+      width:50%; padding:18px; overflow-y:auto; background:var(--panel);
+      border:1px solid var(--border); border-radius:8px; line-height:1.9;
+      font-size:1.05rem; box-shadow:0 6px 18px rgba(14,20,40,0.03);
+    }
+
+    ruby rt{ font-size:0.65em; color:#374151; font-weight:600; }
+
+    .sentence{ display:inline; padding:2px 6px; border-radius:6px; cursor:text; }
+    .sentence.active-sentence{ background:rgba(108,140,255,0.12); }
+    .sentence-es{ display:inline; padding:2px 6px; border-radius:6px; }
+    .sentence-es.active-sentence-es{ background:rgba(102,204,255,0.12); }
+
+    /* Bottom bar */
+    #bottom-bar{
+      position:fixed; bottom:0; left:0; width:100%; height:25vh;
+      display:flex; gap:12px; border-top:1px solid var(--border);
+      background:rgba(255,255,255,0.96); z-index:1000; align-items:center; padding:12px;
+    }
+    #voice-panel{ width:18%; min-width:180px; border-right:1px solid var(--border); padding-right:12px; display:flex; flex-direction:column; gap:8px; }
+    #compare-panel{ flex:1; display:flex; flex-direction:column; gap:8px; align-items:center; }
+    #jp-sentence{ width:95%; text-align:center; font-size:1.08rem; font-weight:600; color:#07103a; }
+    #es-sentence{ width:95%; text-align:center; font-size:0.98rem; color:var(--muted); min-height:2.4em; }
+    .icon{ background:linear-gradient(180deg,#fff,#f6f9ff); border:1px solid var(--border); padding:6px 10px; border-radius:8px; cursor:pointer; }
+
+    /* Tooltip */
+    .lexword{ position:relative; padding:0 2px; border-radius:4px; }
+    .lexword:hover{ background: rgba(255,208,138,0.14); }
+    .tooltip{ position:absolute; bottom:130%; left:50%; transform:translateX(-50%); background:#0b1220; color:#fff; padding:6px 8px; border-radius:6px; font-size:0.85rem; box-shadow:0 6px 18px rgba(2,6,23,0.3); white-space:nowrap; z-index:9999; opacity:0; pointer-events:none; transition:opacity .12s ease, transform .12s ease; }
+    .lexword.show-tooltip .tooltip{ opacity:1; transform:translateX(-50%) translateY(-4px); pointer-events:auto; }
+
+    @media (max-width:900px){
+      #container{ flex-direction:column; height:calc(50vh - 72px); }
+      #text2{ margin-top:10px; width:100%; }
+      #text1{ width:100%; }
+      #voice-panel{ width:30%; }
+    }
   </style>
 </head>
 <body>
-  <h1>Lector Japonés - Comparativo y Voz</h1>
+
+  <h1 class="page-title">Lector Japonés - Comparativo y Voz</h1>
+
+  <!-- Top bar -->
   <div id="top-bar">
-    <input type="file" id="file1" accept=".txt,.pdf,.epub"/>
-    <input type="file" id="file2" accept=".txt,.pdf,.epub"/>
+    <div>
+      <label for="file1">📘 Texto japonés:</label>
+      <input type="file" id="file1" accept=".txt,.pdf,.epub" />
+    </div>
+    <div>
+      <label for="file2">📙 Texto español:</label>
+      <input type="file" id="file2" accept=".txt,.pdf,.epub" />
+    </div>
+    <div style="margin-left:auto; color:var(--muted); font-size:0.95rem;">
+      Tips: selecciona una voz japonesa y usa A/D/S/Espacio para navegar.
+    </div>
   </div>
+
+  <!-- Container -->
   <div id="container">
     <div id="text1">Cargar texto japonés aquí…</div>
     <div id="text2">Cargar texto español aquí…</div>
   </div>
+
+  <!-- Bottom bar -->
   <div id="bottom-bar">
-    <div id="jp-sentence"></div>
-    <div id="es-sentence"></div>
+    <div id="voice-panel">
+      <label for="voiceSelect" style="font-size:0.95rem; font-weight:700;">Voz:</label>
+      <select id="voiceSelect"></select>
+      <label for="speedRange" style="font-size:0.95rem; font-weight:700; margin-top:6px;">Velocidad:</label>
+      <input type="range" id="speedRange" min="0.5" max="2" value="1" step="0.1">
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button id="playBtn" class="icon">▶︎</button>
+        <button id="pauseBtn" class="icon">⏸︎</button>
+        <button id="stopBtn" class="icon">■</button>
+      </div>
+      <div style="font-size:0.85rem; color:var(--muted); margin-top:8px;">Ajusta la velocidad para TTS.</div>
+    </div>
+
+    <div id="compare-panel">
+      <div id="jp-sentence">（Oración japonesa aparecerá aquí）</div>
+      <div id="es-sentence">（Traducción en español aparecerá aquí）</div>
+      <div id="nav-buttons" style="width:95%; display:flex; justify-content:flex-end;">
+        <button id="prev-translation" class="icon" title="Anterior">◀</button>
+        <button id="next-translation" class="icon" title="Siguiente">▶</button>
+        <button id="explain-jp" class="icon" title="Explicar oración">💬</button>
+      </div>
+    </div>
   </div>
+
+  <!-- SCRIPT: Lógica JS (extendida) -->
   <script>
-    // Script simplificado (la versión completa incluye furigana, tooltip y TTS)
-    console.log("Lector japonés cargado.");
+  /*************************************************************************
+   *  Mini-diccionario offline (puedes ampliarlo)
+   ***************************************************************************/
+  const miniDict = {
+    "私":"yo","私たち":"nosotros","行く":"ir","行きます":"ir (formal)","行った":"ir (pasado)",
+    "見る":"ver","食べる":"comer","大きい":"grande","小さい":"pequeño","猫":"gato","犬":"perro",
+    "新しい":"nuevo","古い":"viejo","本":"libro","学校":"escuela","先生":"profesor","学生":"estudiante",
+    "好き":"gustar","高い":"caro / alto","安い":"barato","来る":"venir","来ます":"venir (formal)",
+    "言う":"decir","言います":"decir (formal)"
+  };
+
+  /*************************************************************************
+   *  Estado global
+   ***************************************************************************/
+  let kuromojiTokenizer = null;
+  let sentences = [];
+  let allEsSentences = [];
+  let currentSentence = 0;
+  let translationIndex = 0;
+  let isPaused = false;
+  const synth = window.speechSynthesis;
+  let voices = [];
+
+  const voiceSelect = document.getElementById("voiceSelect");
+  const rateInput = document.getElementById("speedRange");
+
+  /*************************************************************************
+   *  Inicializar Kuromoji
+   ***************************************************************************/
+  function initKuromoji() {
+    return new Promise((resolve, reject) => {
+      if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
+      kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, tokenizer) => {
+        if (err) { console.warn("Kuromoji error:", err); reject(err); }
+        else { kuromojiTokenizer = tokenizer; resolve(tokenizer); }
+      });
+    });
+  }
+
+  /*************************************************************************
+   *  Lectura de archivos (.txt / .pdf / .epub)
+   ***************************************************************************/
+  async function readFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'txt') return await file.text();
+    else if (ext === 'pdf') {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(it => it.str).join(' ') + "\n";
+      }
+      return text;
+    } else if (ext === 'epub') {
+      const book = ePub(await file.arrayBuffer());
+      const spine = await book.loaded.spine;
+      let text = "";
+      for (const item of spine) {
+        try {
+          const content = await book.load(item.href);
+          text += new TextDecoder("utf-8").decode(content);
+        } catch (err) { console.warn("EPUB read error:", err); }
+      }
+      return text.replace(/<[^>]+>/g, ' ');
+    } else {
+      alert("Formato no soportado");
+      return "";
+    }
+  }
+
+  /*************************************************************************
+   *  Utilidades
+   ***************************************************************************/
+  function containsKanji(str) { return /[一-龯]/.test(str); }
+  function kanaKatakanaToHiragana(str) { return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)); }
+  function escapeHtml(s) { return ("" + s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s) { return (""+s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+  /*************************************************************************
+   *  Procesamiento japonés: segmentación + furigana
+   ***************************************************************************/
+  async function processJapaneseRaw(raw) {
+    try { await initKuromoji(); } catch(e) { console.warn("Kuromoji not available:", e); }
+
+    raw = (raw || "").replace(/\r/g, "\n").trim();
+
+    // split compatible (no lookbehind): mantener signos de puntuación
+    const parts = raw.split(/([。！？?!\n]+)/u)
+      .reduce((acc, cur) => {
+        if (/^[。！？?!\n]+$/.test(cur)) {
+          if (acc.length === 0) acc.push(cur);
+          else acc[acc.length - 1] += cur;
+        } else acc.push(cur);
+        return acc;
+      }, [])
+      .map(p => p.trim())
+      .filter(Boolean);
+
+    const processedParts = [];
+
+    for (const part of parts) {
+      if (!kuromojiTokenizer) { processedParts.push(escapeHtml(part)); continue; }
+      const tokens = kuromojiTokenizer.tokenize(part);
+      const htmlPieces = tokens.map(t => {
+        const surface = t.surface_form;
+        const reading = t.reading || "";
+        const basic = t.basic_form || surface;
+        const pos = t.pos || "";
+        let display = escapeHtml(surface);
+        if (containsKanji(surface) && reading) {
+          const hira = kanaKatakanaToHiragana(reading);
+          display = `<ruby>${escapeHtml(surface)}<rt>${escapeHtml(hira)}</rt></ruby>`;
+        }
+
+        const majorPos = (pos === "名詞" || pos === "動詞" || pos === "形容詞");
+        if (majorPos) {
+          const lookupKey = escapeAttr(basic === "*" ? surface : basic);
+          return `<span class="lexword" data-lemma="${lookupKey}" data-pos="${escapeAttr(pos)}">${display}<span class="tooltip"></span></span>`;
+        } else {
+          return display;
+        }
+      });
+      processedParts.push(htmlPieces.join(""));
+    }
+
+    return processedParts;
+  }
+
+  async function renderJapaneseFromRaw(raw) {
+    const container = document.getElementById("text1");
+    const processed = await processJapaneseRaw(raw);
+    container.innerHTML = processed.map((p,i) => `<span class="sentence" data-index="${i}">${p}</span>`).join(" ");
+    sentences = Array.from(container.querySelectorAll(".sentence"));
+    attachTooltipEvents();
+  }
+
+  /*************************************************************************
+   *  Renderizado español
+   ***************************************************************************/
+  function renderSpanishFromRaw(raw) {
+    const container = document.getElementById("text2");
+    const parts = raw.split(/([。.!?！？\n]+)/u)
+      .reduce((acc, cur) => {
+        if (/^[。.!?！？\n]+$/.test(cur)) {
+          if (acc.length === 0) acc.push(cur);
+          else acc[acc.length - 1] += cur;
+        } else acc.push(cur);
+        return acc;
+      }, [])
+      .map(p => p.trim())
+      .filter(Boolean);
+    container.innerHTML = parts.map((p,i) => `<span class="sentence-es" data-index="${i}">${escapeHtml(p)}</span>`).join(" ");
+    allEsSentences = Array.from(container.querySelectorAll(".sentence-es"));
+  }
+
+  /*************************************************************************
+   *  Tooltips con mini-diccionario offline
+   ***************************************************************************/
+  function attachTooltipEvents() {
+    document.querySelectorAll(".lexword").forEach(node => {
+      node.onmouseenter = null; node.onmouseleave = null; node.onclick = null;
+      node.addEventListener("mouseenter", onLexEnter);
+      node.addEventListener("mouseleave", onLexLeave);
+      node.addEventListener("click", onLexClick);
+    });
+  }
+  function onLexEnter(e) { showTooltipFor(e.currentTarget); }
+  function onLexLeave(e) { hideTooltipFor(e.currentTarget); }
+  function onLexClick(e) { const node = e.currentTarget; showTooltipFor(node); setTimeout(()=>hideTooltipFor(node),2500); }
+
+  function showTooltipFor(node) {
+    const lemma = node.dataset.lemma;
+    let text = miniDict[lemma] || miniDict[node.textContent.trim()] || null;
+    if (!text) {
+      const rt = node.querySelector("rt"); if (rt) text = `Lectura: ${rt.textContent}`; else text = "sin traducción (diccionario offline limitado)";
+    }
+    const tooltip = node.querySelector(".tooltip");
+    tooltip.textContent = text; node.classList.add("show-tooltip");
+  }
+  function hideTooltipFor(node) { const tooltip = node.querySelector(".tooltip"); if (tooltip) tooltip.textContent = ""; node.classList.remove("show-tooltip"); }
+
+  /*************************************************************************
+   *  TTS (Web Speech API)
+   ***************************************************************************/
+  function populateVoices() {
+    voices = synth.getVoices().filter(v => v.lang && v.lang.startsWith("ja"));
+    if (!voices.length) voices = synth.getVoices() || [];
+    voiceSelect.innerHTML = "";
+    voices.forEach(v => { const opt = document.createElement("option"); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelect.appendChild(opt); });
+  }
+  populateVoices();
+  speechSynthesis.onvoiceschanged = populateVoices;
+
+  function extractPlainText(element) {
+    const clone = element.cloneNode(true);
+    clone.querySelectorAll("rt, .tooltip").forEach(n => n.remove());
+    return clone.innerText.trim();
+  }
+
+  function speakSentence(index) {
+    if (!sentences.length) return;
+    if (!voices.length) populateVoices();
+    const sentenceElement = sentences[index];
+    if (!sentenceElement) return;
+    const sentence = extractPlainText(sentenceElement);
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(sentence);
+    utterance.voice = voices.find(v => v.name === voiceSelect.value) || voices[0];
+    utterance.rate = parseFloat(rateInput.value) || 1;
+    utterance.lang = "ja-JP";
+    highlightSentence(index);
+    utterance.onend = () => {
+      if (!isPaused && index < sentences.length - 1) { currentSentence++; speakSentence(currentSentence); }
+    };
+    synth.speak(utterance);
+  }
+
+  /*************************************************************************
+   *  Resaltado y panel comparativo
+   ***************************************************************************/
+  function highlightSentence(index) {
+    sentences.forEach(s => s.classList.remove("active-sentence"));
+    allEsSentences.forEach(s => s.classList.remove("active-sentence-es"));
+    if (sentences[index]) { sentences[index].classList.add("active-sentence"); sentences[index].scrollIntoView({ behavior: "smooth", block: "center" }); }
+    if (allEsSentences[translationIndex]) { allEsSentences[translationIndex].classList.add("active-sentence-es"); allEsSentences[translationIndex].scrollIntoView({ behavior: "smooth", block: "center" }); }
+    updateComparePanel(index);
+  }
+
+  function updateComparePanel(index) {
+    const jpSentenceEl = sentences[index];
+    const esSentenceEl = allEsSentences[translationIndex];
+    document.getElementById("jp-sentence").innerHTML = jpSentenceEl ? jpSentenceEl.innerHTML : "（Oración japonesa aparecerá aquí）";
+    document.getElementById("es-sentence").textContent = esSentenceEl ? esSentenceEl.innerText : "（Traducción en español aparecerá aquí）";
+  }
+
+  /*************************************************************************
+   *  Reproducción: play/pause/next/prev/repeat
+   ***************************************************************************/
+  function playPause() {
+    if (synth.speaking && !isPaused) { try { synth.pause(); } catch (e) {} isPaused = true; }
+    else if (isPaused) { try { synth.resume(); } catch (e) {} isPaused = false; }
+    else {
+      if (!sentences.length) { renderSpanishFromRaw(document.getElementById("text2").innerText || ""); renderJapaneseFromRaw(document.getElementById("text1").innerText || ""); }
+      currentSentence = 0; isPaused = false; speakSentence(currentSentence);
+    }
+  }
+  function nextSentence() { if (currentSentence < sentences.length - 1) { currentSentence++; synth.cancel(); speakSentence(currentSentence); } }
+  function prevSentence() { if (currentSentence > 0) { currentSentence--; synth.cancel(); speakSentence(currentSentence); } }
+  function repeatSentence() { synth.cancel(); speakSentence(currentSentence); }
+
+  /*************************************************************************
+   *  Eventos de interacción (clicks y teclado)
+   ***************************************************************************/
+  document.getElementById("text1").addEventListener("click", e => {
+    const clicked = e.target.closest(".sentence");
+    if (!clicked) return;
+    const index = sentences.indexOf(clicked);
+    if (index !== -1) { currentSentence = index; highlightSentence(index); speakSentence(index); }
+  });
+
+  document.getElementById("prev-translation").addEventListener("click", () => { if (translationIndex > 0) translationIndex--; updateComparePanel(currentSentence); });
+  document.getElementById("next-translation").addEventListener("click", () => { if (translationIndex < allEsSentences.length - 1) translationIndex++; updateComparePanel(currentSentence); });
+
+  document.getElementById("explain-jp").addEventListener("click", () => {
+    const jpSentence = extractPlainText(sentences[currentSentence] || {});
+    const query = `Explica el significado de la oración en japonés "${jpSentence}" en español`;
+    const chatUrl = `https://chat.openai.com/?q=${encodeURIComponent(query)}`;
+    window.open(chatUrl, "_blank");
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (e.key === "a" || e.key === "A") { e.preventDefault(); prevSentence(); }
+    if (e.key === "d" || e.key === "D") { e.preventDefault(); nextSentence(); }
+    if (e.key === "s" || e.key === "S") { e.preventDefault(); repeatSentence(); }
+    if (e.code === "Space") { e.preventDefault(); playPause(); }
+  });
+
+  /*************************************************************************
+   *  Controles inferiores
+   ***************************************************************************/
+  document.getElementById("playBtn").addEventListener("click", () => {
+    if (!sentences.length) { renderSpanishFromRaw(document.getElementById("text2").innerText || ""); renderJapaneseFromRaw(document.getElementById("text1").innerText || ""); }
+    speakSentence(currentSentence || 0);
+  });
+  document.getElementById("pauseBtn").addEventListener("click", () => {
+    if (synth.speaking && !isPaused) { try { synth.pause(); } catch (e) {} isPaused = true; } else if (isPaused) { try { synth.resume(); } catch (e) {} isPaused = false; }
+  });
+  document.getElementById("stopBtn").addEventListener("click", () => { synth.cancel(); isPaused = false; });
+
+  /*************************************************************************
+   *  Manejo de archivos: carga y procesamiento
+   ***************************************************************************/
+  async function handleFileInput(file, targetLang) {
+    const text = await readFile(file);
+    if (targetLang === "jp") {
+      await renderJapaneseFromRaw(text || "");
+      allEsSentences = Array.from(document.getElementById("text2").querySelectorAll(".sentence-es"));
+      translationIndex = 0; updateComparePanel(0);
+    } else {
+      renderSpanishFromRaw(text || "");
+      sentences = Array.from(document.getElementById("text1").querySelectorAll(".sentence"));
+      translationIndex = 0; updateComparePanel(0);
+    }
+  }
+  document.getElementById("file1").addEventListener("change", e => { const file = e.target.files?.[0]; if (file) handleFileInput(file, "jp"); });
+  document.getElementById("file2").addEventListener("change", e => { const file = e.target.files?.[0]; if (file) handleFileInput(file, "es"); });
+
+  /*************************************************************************
+   *  Inicialización al cargar la página
+   ***************************************************************************/
+  window.addEventListener("load", async () => {
+    try { await initKuromoji(); } catch (err) { /* ignored, app still works without furigana */ }
+    populateVoices();
+    // Demo opcional (descomentar si quieres precargar ejemplo)
+    /*
+    const demoJP = "私は猫です。あなたは学生です。明日は学校へ行きます。";
+    const demoES = "Yo soy un gato. Tú eres estudiante. Mañana iré a la escuela.";
+    document.getElementById("text1").textContent = demoJP;
+    document.getElementById("text2").textContent = demoES;
+    await renderJapaneseFromRaw(demoJP);
+    renderSpanishFromRaw(demoES);
+    updateComparePanel(0);
+    */
+  });
   </script>
+
 </body>
 </html>
