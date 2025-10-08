@@ -4,275 +4,127 @@
   <meta charset="utf-8" />
   <title>Lector Japonés - Comparativo y Voz</title>
 
-  <!-- ============================================================
-       Librerías externas (CDN)
-       - pdf.js (lectura PDF)
-       - JSZip (soporte EPUB)
-       - ePub.js (lectura EPUB)
-       - kuromoji.js (tokenización japonesa + furigana)
-       ============================================================ -->
+  <!-- ============================================
+       Librerías locales/external necesarias
+       - PDF.js (CDN)
+       - JSZip / epub.js (CDN)
+       - kuromoji.js (LOCAL -> js/kuromoji.js)
+       ============================================ -->
 
-  <!-- === PDF.js === -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-<script>
-  if (window['pdfjsLib']) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
-  }
-</script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script>
+    if (window['pdfjsLib']) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
+    }
+  </script>
 
-<!-- === JSZip y ePub.js === -->
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+  <!-- JSZip / epub.js desde CDN (puedes cambiar si quieres local) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
 
-<!-- === Kuromoji.js (tokenizador japonés) === -->
-<script id="kuromoji-script" src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
-<script>
-  // Esperar a que Kuromoji termine de cargar antes de cualquier uso
-  window.kuromojiReady = new Promise((resolve, reject) => {
-    const s = document.getElementById("kuromoji-script");
-    s.addEventListener("load", () => {
+  <!-- kuromoji.js local: coloca js/kuromoji.js en tu repo -->
+  <script id="kuromoji-script" src="js/kuromoji.js"></script>
+  <script>
+    // Promise que se resuelve cuando kuromoji está cargado y listo
+    window.kuromojiReady = new Promise((resolve, reject) => {
+      const s = document.getElementById("kuromoji-script");
+      // si ya cargó y definió window.kuromoji
       if (window.kuromoji && typeof window.kuromoji.builder === "function") {
-        console.log("✅ Kuromoji.js cargado y listo.");
-        resolve(window.kuromoji);
-      } else {
-        reject(new Error("El objeto kuromoji no está disponible correctamente."));
+        console.log("✅ kuromoji.js ya disponible");
+        return resolve(window.kuromoji);
       }
+      // escuchar evento load/error
+      s.addEventListener("load", () => {
+        if (window.kuromoji && typeof window.kuromoji.builder === "function") {
+          console.log("✅ kuromoji.js cargado correctamente");
+          resolve(window.kuromoji);
+        } else {
+          reject(new Error("kuromoji se cargó, pero window.kuromoji no está disponible"));
+        }
+      });
+      s.addEventListener("error", () => {
+        reject(new Error("No se pudo cargar js/kuromoji.js"));
+      });
+      // por si el script se descarga inmediatamente después de crear la promesa
+      setTimeout(() => {
+        if (window.kuromoji && typeof window.kuromoji.builder === "function") {
+          resolve(window.kuromoji);
+        }
+      }, 50);
     });
-    s.addEventListener("error", () => {
-      reject(new Error("❌ No se pudo cargar kuromoji.js"));
-    });
-  });
 
-  // Función que espera la carga (sin bucle ni timeout)
-  async function waitForKuromoji() {
-    const lib = await window.kuromojiReady;
-    return lib;
-  }
-</script>
+    async function waitForKuromoji() {
+      return await window.kuromojiReady;
+    }
+  </script>
 
+  <!-- ============================================
+       Estilos
+       (versión moderna, adaptativa)
+       ============================================ -->
   <style>
-    /* --------------- Variables y reset --------------- */
     :root{
-      --bg: #fbfbfd;
-      --panel: #ffffff;
-      --muted: #6b7280;
-      --accent: #6c8cff;
-      --accent-2: #ffd08a;
-      --border: #e6e9ef;
-      --glass: rgba(255,255,255,0.7);
+      --bg:#fbfbfd;--panel:#fff;--muted:#6b7280;--accent:#6c8cff;--border:#e6e9ef;
     }
-
-    * { box-sizing: border-box; }
-    html,body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial;
-      background: linear-gradient(180deg, #f6f8ff 0%, var(--bg) 100%);
-      color: #111827;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* --------------- Top bar --------------- */
-    #top-bar {
-      display:flex;
-      gap: 1.5rem;
-      align-items: center;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-      position: sticky;
-      top: 0;
-      z-index: 999;
-      box-shadow: 0 1px 6px rgba(12,20,60,0.04);
-    }
-    #top-bar label { font-weight: 600; color: #0f172a; margin-right: 8px; }
-    #top-bar input[type=file] { font-size: 0.95rem; }
-
-    h1.page-title {
-      margin: 12px 20px 8px;
-      font-size: 1.18rem;
-      font-weight: 700;
-      color: #0b1220;
-    }
-
-    /* --------------- Main container --------------- */
-    #container {
-      display: flex;
-      gap: 12px;
-      padding: 18px;
-      height: calc(100vh - 25vh - 120px);
-    }
-
-    #text1, #text2 {
-      width: 50%;
-      padding: 18px;
-      overflow-y: auto;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      line-height: 1.9;
-      font-size: 1.05rem;
-      box-shadow: 0 8px 22px rgba(14,20,40,0.03);
-      min-height: 120px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    #text2 { margin-left: 0; }
-
-    /* Furigana style */
-    ruby rt { font-size: 0.65em; color: #374151; font-weight: 600; }
-
-    /* Sentence highlighting */
-    .sentence { display: inline; padding: 2px 6px; border-radius: 6px; cursor: text; }
-    .sentence.active-sentence { background: rgba(108,140,255,0.12); }
-    .sentence-es { display: inline; padding: 2px 6px; border-radius: 6px; }
-    .sentence-es.active-sentence-es { background: rgba(102,204,255,0.12); }
-
-    /* --------------- Bottom bar --------------- */
-    #bottom-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 25vh;
-      display: flex;
-      gap: 12px;
-      border-top: 1px solid var(--border);
-      background: rgba(255,255,255,0.96);
-      z-index: 1000;
-      padding: 12px;
-      align-items: center;
-    }
-
-    #voice-panel {
-      width: 18%;
-      min-width: 190px;
-      border-right: 1px solid var(--border);
-      padding-right: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    #voice-panel select, #voice-panel input[type=range] { width: 100%; }
-
-    #compare-panel { flex: 1; display:flex; flex-direction:column; gap:8px; align-items:center; }
-
-    #jp-sentence { width: 95%; text-align:center; font-size:1.08rem; font-weight:600; color:#07103a; }
-    #es-sentence { width:95%; text-align:center; font-size:0.98rem; color:var(--muted); min-height:2.4em; }
-
-    #nav-buttons { display:flex; gap:8px; align-items:center; justify-content:flex-end; width:95%; }
-
-    button.icon {
-      background: linear-gradient(180deg, #fff, #f6f9ff);
-      border: 1px solid var(--border);
-      padding: 6px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(12,20,60,0.03);
-    }
-
-    /* tooltip styles */
-    .lexword { position: relative; padding: 0 2px; border-radius: 4px; }
-    .lexword:hover { background: rgba(255,208,138,0.14); }
-    .tooltip {
-      position: absolute;
-      bottom: 130%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #0b1220;
-      color: #fff;
-      padding: 6px 8px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      box-shadow: 0 6px 18px rgba(2,6,23,0.3);
-      white-space: nowrap;
-      z-index: 9999;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.12s ease, transform 0.12s ease;
-    }
-    .lexword.show-tooltip .tooltip { opacity: 1; transform: translateX(-50%) translateY(-4px); pointer-events: auto; }
-
-    /* responsive */
-    @media (max-width: 900px) {
-      #container { flex-direction: column; height: calc(50vh - 72px); }
-      #text2 { margin-top: 10px; width: 100%; }
-      #text1 { width: 100%; }
-      #voice-panel { width: 30%; min-width: 140px; }
-    }
-
-    /* small helper logs area (hidden by default - can show for debugging) */
-    #debug {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      z-index: 2000;
-      display: none;
-    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui, -apple-system, "Helvetica Neue", Arial;color:#111827}
+    h1.page-title{margin:12px 20px;font-size:1.18rem;font-weight:700}
+    #top-bar{display:flex;gap:1rem;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:50}
+    #container{display:flex;gap:12px;padding:18px;height:calc(100vh - 25vh - 120px)}
+    #text1,#text2{width:50%;padding:18px;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;line-height:1.9;font-size:1.05rem;min-height:120px;white-space:pre-wrap}
+    ruby rt{font-size:.65em;color:#374151;font-weight:600}
+    .sentence{display:inline;padding:2px 6px;border-radius:6px;cursor:text}
+    .sentence.active-sentence{background:rgba(108,140,255,0.12)}
+    .sentence-es{display:inline;padding:2px 6px;border-radius:6px}
+    .sentence-es.active-sentence-es{background:rgba(102,204,255,0.12)}
+    #bottom-bar{position:fixed;bottom:0;left:0;width:100%;height:25vh;display:flex;gap:12px;border-top:1px solid var(--border);background:rgba(255,255,255,0.96);z-index:60;padding:12px;align-items:center}
+    #voice-panel{width:18%;min-width:180px;border-right:1px solid var(--border);padding-right:12px;display:flex;flex-direction:column;gap:8px}
+    #compare-panel{flex:1;display:flex;flex-direction:column;gap:8px;align-items:center}
+    #jp-sentence{width:95%;text-align:center;font-size:1.08rem;font-weight:600;color:#07103a}
+    #es-sentence{width:95%;text-align:center;font-size:.98rem;color:var(--muted);min-height:2.4em}
+    .icon{background:linear-gradient(180deg,#fff,#f6f9ff);border:1px solid var(--border);padding:6px 10px;border-radius:8px;cursor:pointer}
+    .lexword{position:relative;padding:0 2px;border-radius:4px}
+    .lexword:hover{background:rgba(255,208,138,0.14)}
+    .tooltip{position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#0b1220;color:#fff;padding:6px 8px;border-radius:6px;font-size:.85rem;box-shadow:0 6px 18px rgba(2,6,23,.3);white-space:nowrap;z-index:9999;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
+    .lexword.show-tooltip .tooltip{opacity:1;transform:translateX(-50%) translateY(-4px);pointer-events:auto}
+    @media(max-width:900px){#container{flex-direction:column;height:calc(50vh - 72px)}#text1,#text2{width:100%}#voice-panel{width:30%}}
+    #debug{position:fixed;top:12px;right:12px;background:rgba(0,0,0,0.7);color:#fff;padding:8px 10px;border-radius:6px;font-size:12px;z-index:2000;display:none}
   </style>
 </head>
 <body>
-
-  <!-- ============================================================
-       Título y barra superior
-       ============================================================ -->
   <h1 class="page-title">Lector Japonés - Comparativo y Voz</h1>
 
   <div id="top-bar">
-    <div>
-      <label for="file1">📘 Texto japonés:</label>
-      <input type="file" id="file1" accept=".txt,.pdf,.epub" />
-    </div>
-    <div>
-      <label for="file2">📙 Texto español:</label>
-      <input type="file" id="file2" accept=".txt,.pdf,.epub" />
-    </div>
-    <div style="margin-left:auto; color:var(--muted); font-size:0.95rem;">
-      Tips: selecciona una voz japonesa y usa A/D/S/Espacio para navegar.
-    </div>
+    <div><label for="file1">📘 Texto japonés:</label><input id="file1" type="file" accept=".txt,.pdf,.epub"></div>
+    <div><label for="file2">📙 Texto español:</label><input id="file2" type="file" accept=".txt,.pdf,.epub"></div>
+    <div style="margin-left:auto;color:var(--muted);font-size:.95rem">Tips: selecciona voz y usa A/D/S/Espacio</div>
   </div>
 
-  <!-- ============================================================
-       Área principal con paneles de texto
-       ============================================================ -->
   <div id="container">
     <div id="text1">Cargar texto japonés aquí…</div>
     <div id="text2">Cargar texto español aquí…</div>
   </div>
 
-  <!-- ============================================================
-       Barra inferior: voz + comparativo + navegación
-       ============================================================ -->
   <div id="bottom-bar">
     <div id="voice-panel">
-      <label for="voiceSelect" style="font-size:0.95rem; font-weight:700;">Voz:</label>
+      <label for="voiceSelect" style="font-weight:700">Voz:</label>
       <select id="voiceSelect"></select>
-
-      <label for="speedRange" style="font-size:0.95rem; font-weight:700; margin-top:6px;">Velocidad:</label>
-      <input type="range" id="speedRange" min="0.5" max="2" value="1" step="0.1">
-
-      <div style="display:flex; gap:8px; margin-top:8px;">
+      <label for="speedRange" style="margin-top:6px;font-weight:700">Velocidad:</label>
+      <input id="speedRange" type="range" min="0.5" max="2" step="0.1" value="1">
+      <div style="display:flex;gap:8px;margin-top:8px">
         <button id="playBtn" class="icon">▶︎</button>
         <button id="pauseBtn" class="icon">⏸︎</button>
         <button id="stopBtn" class="icon">■</button>
       </div>
-      <div style="font-size:0.85rem; color:var(--muted); margin-top:6px;">
-        Velocidad ajustable para TTS
-      </div>
+      <div style="font-size:.85rem;color:var(--muted);margin-top:6px">Ajusta la velocidad para TTS</div>
     </div>
 
     <div id="compare-panel">
       <div id="jp-sentence">（Oración japonesa aparecerá aquí）</div>
       <div id="es-sentence">（Traducción en español aparecerá aquí）</div>
-      <div id="nav-buttons">
+      <div id="nav-buttons" style="width:95%;display:flex;justify-content:flex-end;gap:8px">
         <button id="prev-translation" class="icon" title="Anterior">◀</button>
         <button id="next-translation" class="icon" title="Siguiente">▶</button>
         <button id="explain-jp" class="icon" title="Explicar oración">💬</button>
@@ -282,106 +134,82 @@
 
   <div id="debug">debug</div>
 
-  <!-- ============================================================
-       SCRIPT: toda la lógica (comentada y extendida)
-       ============================================================ -->
+  <!-- ============================================
+       SCRIPT PRINCIPAL (todo en este index.html)
+       ============================================ -->
   <script>
-  /* ============================================================
-     MINI DICCIONARIO (offline) — extiéndelo si quieres
-     key: lemma (forma básica) -> value: traducción
-     ============================================================ */
+  /* ========================
+     Mini-diccionario offline (puedes ampliarlo)
+     ======================== */
   const miniDict = {
-    "私": "yo",
-    "私たち": "nosotros",
-    "行く": "ir",
-    "行きます": "ir (formal)",
-    "行った": "ir (pasado)",
-    "見る": "ver",
-    "食べる": "comer",
-    "大きい": "grande",
-    "小さい": "pequeño",
-    "猫": "gato",
-    "犬": "perro",
-    "速い": "rápido",
-    "遅い": "lento",
-    "新しい": "nuevo",
-    "古い": "viejo",
-    "本": "libro",
-    "学校": "escuela",
-    "先生": "profesor",
-    "学生": "estudiante",
-    "好き": "gustar",
-    "高い": "caro / alto",
-    "安い": "barato",
-    "来る": "venir",
-    "言う": "decir"
+    "私": "yo","私たち":"nosotros","行く":"ir","行きます":"ir (formal)","行った":"ir (pasado)",
+    "見る":"ver","食べる":"comer","大きい":"grande","小さい":"pequeño","猫":"gato","犬":"perro",
+    "新しい":"nuevo","古い":"viejo","本":"libro","学校":"escuela","先生":"profesor","学生":"estudiante",
+    "好き":"gustar","高い":"caro / alto","安い":"barato","来る":"venir","言う":"decir"
   };
 
-  /* ============================================================
-     ESTADO GLOBAL
-     ============================================================ */
+  /* ========================
+     Estado global
+     ======================== */
   let kuromojiTokenizer = null;
-  let sentences = [];         // spans .sentence en #text1
-  let allEsSentences = [];    // spans .sentence-es en #text2
+  let sentences = [];
+  let allEsSentences = [];
   let currentSentence = 0;
   let translationIndex = 0;
   let isPaused = false;
   const synth = window.speechSynthesis;
   let voices = [];
-
   const voiceSelect = document.getElementById("voiceSelect");
   const rateInput = document.getElementById("speedRange");
 
-  /* ============================================================
-     INICIALIZAR KUROMIJI (con logging y reintento si falla)
-     - usa dicPath apuntando a CDN (funciona en GitHub Pages)
-     ============================================================ */
- async function initKuromoji(retries = 2) {
-  console.log("⏳ Esperando carga de Kuromoji...");
-let lib;
-try {
-  lib = await waitForKuromoji();
-} catch (e) {
-  console.error("❌ Kuromoji no se cargó correctamente:", e);
-  throw e;
-}
+  /* ========================
+     Inicializar Kuromoji (usa dic local: ./dict/)
+     ======================== */
+  async function initKuromoji(retries = 2) {
+    console.log("⏳ Esperando que kuromoji esté disponible...");
+    try {
+      await waitForKuromoji(); // espera a la promesa creada en head
+    } catch (e) {
+      console.error("❌ Kuromoji no se cargó:", e);
+      throw e;
+    }
 
-  return new Promise((resolve, reject) => {
-    if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
+    return new Promise((resolve, reject) => {
+      if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
 
-    console.log("📦 Inicializando tokenizador Kuromoji...");
-    kuromoji.builder({
-      dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/"
-    }).build((err, tokenizer) => {
-      if (err) {
-        console.warn("⚠️ Error al construir el tokenizador:", err);
-        if (retries > 0) {
-          console.log(`🔁 Reintentando (${retries} restantes)...`);
-          setTimeout(() => {
-            initKuromoji(retries - 1).then(resolve).catch(reject);
-          }, 1000);
-        } else reject(err);
-      } else {
-        kuromojiTokenizer = tokenizer;
-        console.log("✅ Kuromoji inicializado correctamente.");
-        resolve(tokenizer);
+      try {
+        // dicPath apunta a la carpeta dict/ en el repo
+        kuromoji.builder({ dicPath: "./dict/" }).build((err, tokenizer) => {
+          if (err) {
+            console.warn("⚠️ Error al construir tokenizador:", err);
+            if (retries > 0) {
+              console.log(`🔁 Reintentando initKuromoji (${retries-1} left)`);
+              setTimeout(() => initKuromoji(retries - 1).then(resolve).catch(reject), 900);
+            } else {
+              reject(err);
+            }
+            return;
+          }
+          kuromojiTokenizer = tokenizer;
+          console.log("✅ Kuromoji inicializado correctamente (dic local).");
+          resolve(tokenizer);
+        });
+      } catch (e) {
+        console.error("💥 Excepción en initKuromoji:", e);
+        reject(e);
       }
     });
-  });
-}
+  }
 
-
-  /* ============================================================
-     UTILIDADES
-     ============================================================ */
+  /* ========================
+     Utilidades
+     ======================== */
   function containsKanji(str) {
     return /[一-龯]/.test(str);
   }
-
   function kanaKatakanaToHiragana(str) {
     return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
   }
-
   function escapeHtml(s) {
     return ("" + s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -389,10 +217,9 @@ try {
     return ("" + s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  /* ============================================================
-     LECTURA DE ARCHIVOS: txt / pdf / epub
-     - readFile(file) devuelve string
-     ============================================================ */
+  /* ========================
+     Lectura de archivos: txt / pdf / epub
+     ======================== */
   async function readFile(file) {
     const ext = (file.name || "").split('.').pop().toLowerCase();
     if (ext === "txt") {
@@ -436,13 +263,10 @@ try {
     }
   }
 
-  /* ============================================================
-     SEGMENTACIÓN + FURIGANA
-     - processJapaneseRaw(raw) => array de strings (HTML con ruby)
-     - evita lookbehind; usa split + reduce para mantener signos
-     ============================================================ */
+  /* ========================
+     Segmentación + Furigana
+     ======================== */
   async function processJapaneseRaw(raw) {
-    // intenta inicializar kuromoji si es necesario
     try {
       await initKuromoji();
     } catch (err) {
@@ -451,7 +275,7 @@ try {
 
     raw = (raw || "").replace(/\r/g, "\n").trim();
 
-    // split compatible: capturamos grupos de signos y saltos, luego reconstruimos
+    // segmentación robusta sin lookbehind
     const parts = raw.split(/([。！？?!\n]+)/u)
       .reduce((acc, cur) => {
         if (/^[。！？?!\n]+$/.test(cur)) {
@@ -465,12 +289,11 @@ try {
       .map(p => p.trim())
       .filter(Boolean);
 
-    const processedParts = [];
+    const processed = [];
 
     for (const part of parts) {
       if (!kuromojiTokenizer) {
-        // sin kuromoji: escapamos y devolvemos texto plano
-        processedParts.push(escapeHtml(part));
+        processed.push(escapeHtml(part));
         continue;
       }
 
@@ -481,33 +304,31 @@ try {
         const basic = t.basic_form || surface;
         const pos = t.pos || "";
 
-        // construir display: con ruby si contiene kanji y tiene reading
         let display = escapeHtml(surface);
         if (containsKanji(surface) && reading) {
           const hira = kanaKatakanaToHiragana(reading);
           display = `<ruby>${escapeHtml(surface)}<rt>${escapeHtml(hira)}</rt></ruby>`;
         }
 
-        // marcar palabras léxicas para tooltip
-        const isMajorPos = (pos === "名詞" || pos === "動詞" || pos === "形容詞");
-        if (isMajorPos) {
-          const lookupKey = escapeAttr(basic === "*" ? surface : basic);
+        const isLex = (pos === "名詞" || pos === "動詞" || pos === "形容詞");
+        if (isLex) {
+          const lemma = escapeAttr(basic === "*" ? surface : basic);
           const posAttr = escapeAttr(pos);
-          return `<span class="lexword" data-lemma="${lookupKey}" data-pos="${posAttr}">${display}<span class="tooltip"></span></span>`;
+          return `<span class="lexword" data-lemma="${lemma}" data-pos="${posAttr}">${display}<span class="tooltip"></span></span>`;
         } else {
           return display;
         }
       });
 
-      processedParts.push(htmlPieces.join(""));
+      processed.push(htmlPieces.join(""));
     }
 
-    return processedParts;
+    return processed;
   }
 
-  /* ============================================================
-     RENDERIZADO: insertar HTML en #text1 y #text2
-     ============================================================ */
+  /* ========================
+     Renderizado
+     ======================== */
   async function renderJapaneseFromRaw(raw) {
     const container = document.getElementById("text1");
     const processed = await processJapaneseRaw(raw);
@@ -523,9 +344,7 @@ try {
         if (/^[。.!?！？\n]+$/.test(cur)) {
           if (acc.length === 0) acc.push(cur);
           else acc[acc.length - 1] += cur;
-        } else {
-          acc.push(cur);
-        }
+        } else acc.push(cur);
         return acc;
       }, [])
       .map(p => p.trim())
@@ -535,31 +354,20 @@ try {
     allEsSentences = Array.from(container.querySelectorAll(".sentence-es"));
   }
 
-  /* ============================================================
-     TOOLTIP: eventos para .lexword (mouseenter, mouseleave, click)
-     ============================================================ */
+  /* ========================
+     Tooltips
+     ======================== */
   function attachTooltipEvents() {
     document.querySelectorAll(".lexword").forEach(node => {
-      // eliminar handlers previos por seguridad
       node.onmouseenter = null; node.onmouseleave = null; node.onclick = null;
-
       node.addEventListener("mouseenter", onLexEnter);
       node.addEventListener("mouseleave", onLexLeave);
       node.addEventListener("click", onLexClick);
     });
   }
-
-  function onLexEnter(e) {
-    showTooltipFor(e.currentTarget);
-  }
-  function onLexLeave(e) {
-    hideTooltipFor(e.currentTarget);
-  }
-  function onLexClick(e) {
-    const node = e.currentTarget;
-    showTooltipFor(node);
-    setTimeout(() => hideTooltipFor(node), 2500);
-  }
+  function onLexEnter(e) { showTooltipFor(e.currentTarget); }
+  function onLexLeave(e) { hideTooltipFor(e.currentTarget); }
+  function onLexClick(e) { const node = e.currentTarget; showTooltipFor(node); setTimeout(()=>hideTooltipFor(node),2500); }
 
   function showTooltipFor(node) {
     const lemma = node.dataset.lemma || node.textContent.trim();
@@ -570,33 +378,18 @@ try {
       else text = "sin traducción (diccionario offline limitado)";
     }
     const tooltip = node.querySelector(".tooltip");
-    if (tooltip) {
-      tooltip.textContent = text;
-      node.classList.add("show-tooltip");
-    }
+    if (tooltip) { tooltip.textContent = text; node.classList.add("show-tooltip"); }
   }
+  function hideTooltipFor(node) { const tooltip = node.querySelector(".tooltip"); if (tooltip) tooltip.textContent = ""; node.classList.remove("show-tooltip"); }
 
-  function hideTooltipFor(node) {
-    const tooltip = node.querySelector(".tooltip");
-    if (tooltip) tooltip.textContent = "";
-    node.classList.remove("show-tooltip");
-  }
-
-  /* ============================================================
-     TTS: Web Speech API (llenado de voices, manejo reproducción)
-     ============================================================ */
+  /* ========================
+     TTS (Web Speech API)
+     ======================== */
   function populateVoices() {
     voices = synth.getVoices().filter(v => v.lang && v.lang.startsWith("ja"));
-    // fallback: si no hay voces japonesas, usar todas (user may not have ja voices)
     if (!voices.length) voices = synth.getVoices() || [];
-
     voiceSelect.innerHTML = "";
-    voices.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v.name;
-      opt.textContent = `${v.name} (${v.lang})`;
-      voiceSelect.appendChild(opt);
-    });
+    voices.forEach(v => { const opt = document.createElement("option"); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelect.appendChild(opt); });
   }
   populateVoices();
   speechSynthesis.onvoiceschanged = populateVoices;
@@ -610,194 +403,100 @@ try {
   function speakSentence(index) {
     if (!sentences.length) return;
     if (!voices.length) populateVoices();
-    const sentenceElement = sentences[index];
-    if (!sentenceElement) return;
-    const sentence = extractPlainText(sentenceElement);
+    const el = sentences[index]; if (!el) return;
+    const sentence = extractPlainText(el);
     synth.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(sentence);
-    utterance.voice = voices.find(v => v.name === voiceSelect.value) || voices[0];
-    utterance.rate = parseFloat(rateInput.value) || 1;
-    utterance.lang = "ja-JP";
-
+    const u = new SpeechSynthesisUtterance(sentence);
+    u.voice = voices.find(v=>v.name===voiceSelect.value) || voices[0];
+    u.rate = parseFloat(rateInput.value) || 1;
+    u.lang = "ja-JP";
     highlightSentence(index);
-
-    utterance.onend = () => {
-      if (!isPaused && index < sentences.length - 1) {
-        currentSentence++;
-        speakSentence(currentSentence);
-      }
-    };
-
-    synth.speak(utterance);
+    u.onend = ()=>{ if(!isPaused && index < sentences.length-1){ currentSentence++; speakSentence(currentSentence); } };
+    synth.speak(u);
   }
 
-  /* ============================================================
-     Resaltado y panel comparativo
-     ============================================================ */
+  /* ========================
+     Resaltado y comparativo
+     ======================== */
   function highlightSentence(index) {
-    sentences.forEach(s => s.classList.remove("active-sentence"));
-    allEsSentences.forEach(s => s.classList.remove("active-sentence-es"));
-
-    if (sentences[index]) {
-      sentences[index].classList.add("active-sentence");
-      sentences[index].scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-
-    if (allEsSentences[translationIndex]) {
-      allEsSentences[translationIndex].classList.add("active-sentence-es");
-      allEsSentences[translationIndex].scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-
+    sentences.forEach(s=>s.classList.remove("active-sentence"));
+    allEsSentences.forEach(s=>s.classList.remove("active-sentence-es"));
+    if (sentences[index]) { sentences[index].classList.add("active-sentence"); sentences[index].scrollIntoView({behavior:"smooth",block:"center"}); }
+    if (allEsSentences[translationIndex]) { allEsSentences[translationIndex].classList.add("active-sentence-es"); allEsSentences[translationIndex].scrollIntoView({behavior:"smooth",block:"center"}); }
     updateComparePanel(index);
   }
-
   function updateComparePanel(index) {
-    const jpSentenceEl = sentences[index];
-    const esSentenceEl = allEsSentences[translationIndex];
-    document.getElementById("jp-sentence").innerHTML = jpSentenceEl ? jpSentenceEl.innerHTML : "（Oración japonesa aparecerá aquí）";
-    document.getElementById("es-sentence").textContent = esSentenceEl ? esSentenceEl.innerText : "（Traducción en español aparecerá aquí）";
+    const jp = sentences[index]; const es = allEsSentences[translationIndex];
+    document.getElementById("jp-sentence").innerHTML = jp ? jp.innerHTML : "（Oración japonesa aparecerá aquí）";
+    document.getElementById("es-sentence").textContent = es ? es.innerText : "（Traducción en español aparecerá aquí）";
   }
 
-  /* ============================================================
-     Controles: play / pause / next / prev / repeat
-     ============================================================ */
+  /* ========================
+     Controls: play/pause/next/prev
+     ======================== */
   function playPause() {
-    if (synth.speaking && !isPaused) {
-      try { synth.pause(); } catch(e) {}
-      isPaused = true;
-    } else if (isPaused) {
-      try { synth.resume(); } catch(e) {}
-      isPaused = false;
-    } else {
-      if (!sentences.length) {
-        // construir arrays si aún no procesados
-        renderSpanishFromRaw(document.getElementById("text2").innerText || "");
-        renderJapaneseFromRaw(document.getElementById("text1").innerText || "");
-      }
-      currentSentence = 0;
-      isPaused = false;
-      speakSentence(currentSentence);
-    }
+    if (synth.speaking && !isPaused) { try{ synth.pause(); }catch(e){}; isPaused=true; }
+    else if (isPaused) { try{ synth.resume(); }catch(e){}; isPaused=false; }
+    else { if(!sentences.length){ renderSpanishFromRaw(document.getElementById("text2").innerText||""); renderJapaneseFromRaw(document.getElementById("text1").innerText||""); } currentSentence=0; isPaused=false; speakSentence(currentSentence); }
   }
+  function nextSentence(){ if(currentSentence < sentences.length-1){ currentSentence++; synth.cancel(); speakSentence(currentSentence); } }
+  function prevSentence(){ if(currentSentence > 0){ currentSentence--; synth.cancel(); speakSentence(currentSentence); } }
+  function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
 
-  function nextSentence() {
-    if (currentSentence < sentences.length - 1) {
-      currentSentence++;
-      synth.cancel();
-      speakSentence(currentSentence);
-    }
-  }
-  function prevSentence() {
-    if (currentSentence > 0) {
-      currentSentence--;
-      synth.cancel();
-      speakSentence(currentSentence);
-    }
-  }
-  function repeatSentence() {
-    synth.cancel();
-    speakSentence(currentSentence);
-  }
-
-  /* ============================================================
-     Eventos de interacción
-     ============================================================ */
-  // click on japanese text sentence
-  document.getElementById("text1").addEventListener("click", e => {
-    const clicked = e.target.closest(".sentence");
-    if (!clicked) return;
-    const index = sentences.indexOf(clicked);
-    if (index !== -1) {
-      currentSentence = index;
-      highlightSentence(index);
-      speakSentence(index);
-    }
+  /* ========================
+     Eventos de interacción (clicks y teclado)
+     ======================== */
+  document.getElementById("text1").addEventListener("click", e=>{
+    const clicked = e.target.closest(".sentence"); if(!clicked) return; const idx = sentences.indexOf(clicked); if(idx!==-1){ currentSentence=idx; highlightSentence(idx); speakSentence(idx); }
+  });
+  document.getElementById("prev-translation").addEventListener("click", ()=>{ if(translationIndex>0) translationIndex--; updateComparePanel(currentSentence); });
+  document.getElementById("next-translation").addEventListener("click", ()=>{ if(translationIndex < allEsSentences.length-1) translationIndex++; updateComparePanel(currentSentence); });
+  document.getElementById("explain-jp").addEventListener("click", ()=>{
+    const jp = extractPlainText(sentences[currentSentence]||{}); const query = `Explica el significado de la oración en japonés "${jp}" en español`; window.open(`https://chat.openai.com/?q=${encodeURIComponent(query)}`,"_blank");
   });
 
-  // navigation / explain buttons
-  document.getElementById("prev-translation").addEventListener("click", () => {
-    if (translationIndex > 0) translationIndex--;
-    updateComparePanel(currentSentence);
-  });
-  document.getElementById("next-translation").addEventListener("click", () => {
-    if (translationIndex < allEsSentences.length - 1) translationIndex++;
-    updateComparePanel(currentSentence);
-  });
-  document.getElementById("explain-jp").addEventListener("click", () => {
-    const jpSentence = extractPlainText(sentences[currentSentence] || {});
-    const query = `Explica el significado de la oración en japonés "${jpSentence}" en español`;
-    const chatUrl = `https://chat.openai.com/?q=${encodeURIComponent(query)}`;
-    window.open(chatUrl, "_blank");
+  document.addEventListener("keydown", e=>{
+    if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
+    if(e.key==="a"||e.key==="A"){ e.preventDefault(); prevSentence(); }
+    if(e.key==="d"||e.key==="D"){ e.preventDefault(); nextSentence(); }
+    if(e.key==="s"||e.key==="S"){ e.preventDefault(); repeatSentence(); }
+    if(e.code==="Space"){ e.preventDefault(); playPause(); }
   });
 
-  // keyboard controls
-  document.addEventListener("keydown", e => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-    if (e.key === "a" || e.key === "A") { e.preventDefault(); prevSentence(); }
-    if (e.key === "d" || e.key === "D") { e.preventDefault(); nextSentence(); }
-    if (e.key === "s" || e.key === "S") { e.preventDefault(); repeatSentence(); }
-    if (e.code === "Space") { e.preventDefault(); playPause(); }
-  });
+  document.getElementById("playBtn").addEventListener("click", ()=>{ if(!sentences.length){ renderSpanishFromRaw(document.getElementById("text2").innerText||""); renderJapaneseFromRaw(document.getElementById("text1").innerText||""); } speakSentence(currentSentence||0); });
+  document.getElementById("pauseBtn").addEventListener("click", ()=>{ if(synth.speaking && !isPaused){ try{ synth.pause(); }catch(e){} isPaused=true; } else if(isPaused){ try{ synth.resume(); }catch(e){} isPaused=false; } });
+  document.getElementById("stopBtn").addEventListener("click", ()=>{ synth.cancel(); isPaused=false; });
 
-  // bottom buttons
-  document.getElementById("playBtn").addEventListener("click", () => {
-    if (!sentences.length) { renderSpanishFromRaw(document.getElementById("text2").innerText || ""); renderJapaneseFromRaw(document.getElementById("text1").innerText || ""); }
-    speakSentence(currentSentence || 0);
-  });
-  document.getElementById("pauseBtn").addEventListener("click", () => {
-    if (synth.speaking && !isPaused) { try { synth.pause(); } catch(e) {} isPaused = true; }
-    else if (isPaused) { try { synth.resume(); } catch(e) {} isPaused = false; }
-  });
-  document.getElementById("stopBtn").addEventListener("click", () => { synth.cancel(); isPaused = false; });
-
-  /* ============================================================
-     Carga de archivos (inputs)
-     - handleFileInput(file, "jp"|"es")
-     ============================================================ */
-  async function handleFileInput(file, targetLang) {
+  /* ========================
+     Carga de archivos
+     ======================== */
+  async function handleFileInput(file,target){
     const text = await readFile(file);
-    if (targetLang === "jp") {
-      await renderJapaneseFromRaw(text || "");
+    if(target==="jp"){
+      await renderJapaneseFromRaw(text||"");
       allEsSentences = Array.from(document.getElementById("text2").querySelectorAll(".sentence-es"));
-      translationIndex = 0;
-      updateComparePanel(0);
+      translationIndex = 0; updateComparePanel(0);
     } else {
-      renderSpanishFromRaw(text || "");
+      renderSpanishFromRaw(text||"");
       sentences = Array.from(document.getElementById("text1").querySelectorAll(".sentence"));
-      translationIndex = 0;
-      updateComparePanel(0);
+      translationIndex = 0; updateComparePanel(0);
     }
   }
+  document.getElementById("file1").addEventListener("change", e=>{ const f=e.target.files?.[0]; if(f) handleFileInput(f,"jp"); });
+  document.getElementById("file2").addEventListener("change", e=>{ const f=e.target.files?.[0]; if(f) handleFileInput(f,"es"); });
 
-  document.getElementById("file1").addEventListener("change", e => {
-    const file = e.target.files?.[0];
-    if (file) handleFileInput(file, "jp");
-  });
-  document.getElementById("file2").addEventListener("change", e => {
-    const file = e.target.files?.[0];
-    if (file) handleFileInput(file, "es");
-  });
-
-  /* ============================================================
-     Inicialización al cargar la página
-     ============================================================ */
-  window.addEventListener("load", async () => {
-    try {
+  /* ========================
+     Inicialización
+     ======================== */
+  window.addEventListener("load", async ()=>{
+    try{
       await initKuromoji();
-    } catch (err) {
+    } catch(err){
       console.warn("Kuromoji inicialización fallo (seguimos sin furigana):", err);
     }
     populateVoices();
-    // debug: mostrar caja si quieres ver logs
-    // document.getElementById("debug").style.display = "block";
     console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
   });
-
-  /* ============================================================
-     FIN
-     ============================================================ */
   </script>
-
 </body>
 </html>
