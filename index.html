@@ -25,39 +25,32 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
 
-<!-- === Kuromoji.js === -->
+<!-- === Kuromoji.js (tokenizador japonés) === -->
 <script id="kuromoji-script" src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
 <script>
-  // Esperar explícitamente a que Kuromoji haya cargado
-  window.kuromojiLoaded = new Promise((resolve, reject) => {
+  // Esperar a que Kuromoji termine de cargar antes de cualquier uso
+  window.kuromojiReady = new Promise((resolve, reject) => {
     const s = document.getElementById("kuromoji-script");
     s.addEventListener("load", () => {
-      console.log("✅ Kuromoji.js cargado correctamente");
-      resolve(window.kuromoji);
+      if (window.kuromoji && typeof window.kuromoji.builder === "function") {
+        console.log("✅ Kuromoji.js cargado y listo.");
+        resolve(window.kuromoji);
+      } else {
+        reject(new Error("El objeto kuromoji no está disponible correctamente."));
+      }
     });
     s.addEventListener("error", () => {
-      console.error("❌ Error al cargar Kuromoji.js");
-      reject(new Error("No se pudo cargar Kuromoji.js"));
+      reject(new Error("❌ No se pudo cargar kuromoji.js"));
     });
   });
 
-  // Función para esperar la disponibilidad de Kuromoji
+  // Función que espera la carga (sin bucle ni timeout)
   async function waitForKuromoji() {
-    try {
-      const lib = await window.kuromojiLoaded;
-      // Confirmar que la función builder esté presente
-      if (lib && typeof lib.builder === "function") {
-        console.log("✅ Kuromoji disponible y listo para inicializar.");
-        return lib;
-      } else {
-        throw new Error("El objeto Kuromoji no tiene builder()");
-      }
-    } catch (e) {
-      console.error("⚠️ Error en waitForKuromoji():", e);
-      throw e;
-    }
+    const lib = await window.kuromojiReady;
+    return lib;
   }
 </script>
+
   <style>
     /* --------------- Variables y reset --------------- */
     :root{
@@ -345,12 +338,13 @@
      ============================================================ */
  async function initKuromoji(retries = 2) {
   console.log("⏳ Esperando carga de Kuromoji...");
-  try {
-    await waitForKuromoji(); // Esperar al script realmente cargado
-  } catch (e) {
-    console.error("❌ Kuromoji no cargó a tiempo:", e);
-    throw e;
-  }
+let lib;
+try {
+  lib = await waitForKuromoji();
+} catch (e) {
+  console.error("❌ Kuromoji no se cargó correctamente:", e);
+  throw e;
+}
 
   return new Promise((resolve, reject) => {
     if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
