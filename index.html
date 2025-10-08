@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lector Japonés - Comparativo y Voz</title>
+  <!-- Librerías desde CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
+  <style>
+    body {font-family: Inter, sans-serif; background: #f7f8fc; margin:0; padding:0;}
+    h1 {text-align:center; margin-top:20px;}
+  </style>
+</head>
+<body>
+  <h1>Lector Japonés - Comparativo y Voz</h1>
+  <div id="top-bar">
+    <input type="file" id="file1" accept=".txt,.pdf,.epub"/>
+    <input type="file" id="file2" accept=".txt,.pdf,.epub"/>
+  </div>
+  <div id="container">
+    <div id="text1">Cargar texto japonés aquí…</div>
+    <div id="text2">Cargar texto español aquí…</div>
+  </div>
+  <div id="bottom-bar">
+    <div id="jp-sentence"></div>
+    <div id="es-sentence"></div>
+  </div>
+  <script>
+    // Script simplificado (la versión completa incluye furigana, tooltip y TTS)
+    console.log("Lector japonés cargado.");
+  </script>
+</body>
+</html>
