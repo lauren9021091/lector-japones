@@ -7,60 +7,49 @@
   <!-- ============================================================
        Librerías externas (CDN)
        - pdf.js (lectura PDF)
-       - JSZip (apoyo EPUB)
+       - JSZip (soporte EPUB)
        - ePub.js (lectura EPUB)
-       - kuromoji.js (tokenización japonesa)
+       - kuromoji.js (tokenización japonesa + furigana)
        ============================================================ -->
- <script>
-  // Esperar a que kuromoji esté disponible globalmente antes de usarlo
-  function waitForKuromoji() {
-    return new Promise((resolve, reject) => {
-      let tries = 0;
-      const check = () => {
-        if (window.kuromoji) return resolve(window.kuromoji);
-        if (tries++ > 20) return reject(new Error("kuromoji no cargó a tiempo"));
-        setTimeout(check, 250);
+
+  <!-- === PDF.js === -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script>
+    // Configurar worker de PDF.js (para evitar el aviso "Deprecated API usage")
+    if (window['pdfjsLib']) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
+    }
+  </script>
+
+  <!-- === Otras librerías === -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+  <!-- === Carga garantizada de Kuromoji === -->
+  <script>
+    // Promesa global: asegura que kuromoji esté disponible antes de su uso
+    window.kuromojiReady = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js";
+      script.onload = () => {
+        console.log("✅ kuromoji.js cargado correctamente");
+        resolve(window.kuromoji);
       };
-      check();
+      script.onerror = () => reject(new Error("❌ No se pudo cargar kuromoji.js"));
+      document.head.appendChild(script);
     });
-  }
-</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-<script>
-  // Configurar worker de PDF.js
-  if (window['pdfjsLib']) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
-  }
-</script>
 
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
-
-<!-- Cargar Kuromoji con fallback -->
-<script>
-  // Cargar kuromoji manualmente para asegurar disponibilidad
-  (function loadKuromoji() {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js";
-    s.onload = () => console.log("✅ Kuromoji cargado correctamente");
-    s.onerror = () => console.error("❌ Error al cargar kuromoji.js");
-    document.head.appendChild(s);
-  })();
-
-  // Esperar hasta que window.kuromoji esté disponible
-  function waitForKuromoji() {
-    return new Promise((resolve, reject) => {
-      let tries = 0;
-      const check = () => {
-        if (window.kuromoji) return resolve(window.kuromoji);
-        if (tries++ > 40) return reject(new Error("Kuromoji no cargó a tiempo"));
-        setTimeout(check, 250);
-      };
-      check();
-    });
-  }
-</script>
-
+    // Función auxiliar para esperar la disponibilidad de kuromoji
+    async function waitForKuromoji() {
+      try {
+        return await window.kuromojiReady;
+      } catch (e) {
+        console.error("Error cargando kuromoji:", e);
+        throw e;
+      }
+    }
+  </script>
   <!-- ============================================================
        Estilos — versión moderna (extendida)
        Comentarios y separadores para facilitar edición.
@@ -351,48 +340,35 @@
      - usa dicPath apuntando a CDN (funciona en GitHub Pages)
      ============================================================ */
  async function initKuromoji(retries = 2) {
-  console.log("⏳ Esperando que Kuromoji esté disponible...");
-
+  console.log("⏳ Esperando carga de Kuromoji...");
   try {
-    // Esperar a que la librería kuromoji se cargue en window
-    await waitForKuromoji();
+    await waitForKuromoji(); // Esperar al script realmente cargado
   } catch (e) {
     console.error("❌ Kuromoji no cargó a tiempo:", e);
     throw e;
   }
 
   return new Promise((resolve, reject) => {
-    // Si ya existe un tokenizador previo, lo reutilizamos
-    if (kuromojiTokenizer) {
-      console.log("⚙️ Kuromoji ya estaba inicializado.");
-      return resolve(kuromojiTokenizer);
-    }
+    if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
 
-    console.log("📦 Cargando diccionario Kuromoji desde CDN...");
-    try {
-      kuromoji.builder({
-        dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/"
-      }).build((err, tokenizer) => {
-        if (err) {
-          console.warn("❗ Error al construir el tokenizador:", err);
-          if (retries > 0) {
-            console.log(`🔁 Reintentando carga de Kuromoji (${retries} restantes)...`);
-            setTimeout(() => {
-              initKuromoji(retries - 1).then(resolve).catch(reject);
-            }, 1000);
-          } else {
-            reject(err);
-          }
-        } else {
-          kuromojiTokenizer = tokenizer;
-          console.log("✅ Kuromoji inicializado correctamente.");
-          resolve(tokenizer);
-        }
-      });
-    } catch (e) {
-      console.error("💥 Excepción al intentar construir Kuromoji:", e);
-      reject(e);
-    }
+    console.log("📦 Inicializando tokenizador Kuromoji...");
+    kuromoji.builder({
+      dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/"
+    }).build((err, tokenizer) => {
+      if (err) {
+        console.warn("⚠️ Error al construir el tokenizador:", err);
+        if (retries > 0) {
+          console.log(`🔁 Reintentando (${retries} restantes)...`);
+          setTimeout(() => {
+            initKuromoji(retries - 1).then(resolve).catch(reject);
+          }, 1000);
+        } else reject(err);
+      } else {
+        kuromojiTokenizer = tokenizer;
+        console.log("✅ Kuromoji inicializado correctamente.");
+        resolve(tokenizer);
+      }
+    });
   });
 }
 
