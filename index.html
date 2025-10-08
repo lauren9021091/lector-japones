@@ -13,37 +13,51 @@
        ============================================================ -->
 
   <!-- === PDF.js === -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-  <script>
-    // Configurar worker de PDF.js (para evitar el aviso "Deprecated API usage")
-    if (window['pdfjsLib']) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
-    }
-  </script>
-
-  <!-- === Otras librerías === -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
-
-  <!-- === Kuromoji.js (tokenizador japonés con carga directa) === -->
-<script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
 <script>
-  // Espera activa hasta que window.kuromoji esté disponible
-  async function waitForKuromoji() {
-    let tries = 0;
-    while (!window.kuromoji) {
-      if (tries++ > 60) throw new Error("Kuromoji no cargó a tiempo");
-      await new Promise(r => setTimeout(r, 250));
-    }
-    console.log("✅ Kuromoji disponible en memoria.");
-    return window.kuromoji;
+  if (window['pdfjsLib']) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
   }
 </script>
-  <!-- ============================================================
-       Estilos — versión moderna (extendida)
-       Comentarios y separadores para facilitar edición.
-       ============================================================ -->
+
+<!-- === JSZip y ePub.js === -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+<!-- === Kuromoji.js === -->
+<script id="kuromoji-script" src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
+<script>
+  // Esperar explícitamente a que Kuromoji haya cargado
+  window.kuromojiLoaded = new Promise((resolve, reject) => {
+    const s = document.getElementById("kuromoji-script");
+    s.addEventListener("load", () => {
+      console.log("✅ Kuromoji.js cargado correctamente");
+      resolve(window.kuromoji);
+    });
+    s.addEventListener("error", () => {
+      console.error("❌ Error al cargar Kuromoji.js");
+      reject(new Error("No se pudo cargar Kuromoji.js"));
+    });
+  });
+
+  // Función para esperar la disponibilidad de Kuromoji
+  async function waitForKuromoji() {
+    try {
+      const lib = await window.kuromojiLoaded;
+      // Confirmar que la función builder esté presente
+      if (lib && typeof lib.builder === "function") {
+        console.log("✅ Kuromoji disponible y listo para inicializar.");
+        return lib;
+      } else {
+        throw new Error("El objeto Kuromoji no tiene builder()");
+      }
+    } catch (e) {
+      console.error("⚠️ Error en waitForKuromoji():", e);
+      throw e;
+    }
+  }
+</script>
   <style>
     /* --------------- Variables y reset --------------- */
     :root{
