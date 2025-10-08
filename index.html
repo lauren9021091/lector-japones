@@ -305,43 +305,66 @@
   }
 
  /* ---------------------------
-   Jisho API tooltip logic (online)
-   - cache in localStorage (key: jisho_cache_v1)
-   - debounced requests to avoid bursts
+   Jisho API tooltip logic (con proxy CORS compatible)
+   - Usa https://api.allorigins.win/raw para evitar el error CORS
+   - Cachea resultados en localStorage (key: jisho_cache_v1)
    --------------------------- */
 const JISHO_CACHE_KEY = "jisho_cache_v1";
-const jishoCache = (function(){ try { return JSON.parse(localStorage.getItem(JISHO_CACHE_KEY)) || {}; } catch { return {}; } })();
+const jishoCache = (function () {
+  try {
+    return JSON.parse(localStorage.getItem(JISHO_CACHE_KEY)) || {};
+  } catch {
+    return {};
+  }
+})();
 
-function saveJishoCache(){ try { localStorage.setItem(JISHO_CACHE_KEY, JSON.stringify(jishoCache)); } catch(e){} }
-
-// Debounce utility
-function debounce(fn, wait=250){
-  let t;
-  return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
+function saveJishoCache() {
+  try {
+    localStorage.setItem(JISHO_CACHE_KEY, JSON.stringify(jishoCache));
+  } catch (e) {}
 }
 
-// Fetch from Jisho; returns null or an object { word, reading, defs: [] }
-async function fetchJisho(word){
+// Debounce utility
+function debounce(fn, wait = 250) {
+  let t;
+  return function (...args) {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(this, args), wait);
+  };
+}
+
+// ✅ Fetch desde Jisho.org con proxy AllOrigins
+// Devuelve null o { word, reading, defs: [] }
+async function fetchJisho(word) {
   try {
     const q = encodeURIComponent(word);
-    const url = `https://jisho.org/api/v1/search/words?keyword=${q}`;
-    const r = await fetch(url);
-    if (!r.ok) {
-      console.warn("Jisho HTTP error:", r.status);
+    // Proxy CORS: AllOrigins
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+      "https://jisho.org/api/v1/search/words?keyword=" + q
+    )}`;
+
+    const res = await fetch(proxyUrl);
+    if (!res.ok) {
+      console.warn("Jisho HTTP error:", res.status);
       return null;
     }
-    const data = await r.json();
-    console.debug("Jisho raw response for", word, data); // <-- útil para depuración
 
-    if (!data || !Array.isArray(data.data) || data.data.length === 0) return null;
+    const data = await res.json();
+    console.debug("📘 Jisho respuesta para", word, data);
 
-    // tomar la primera entrada con senses
-    const first = data.data[0];
-    const japaneseObj = (first.japanese && first.japanese[0]) || {};
-    const reading = japaneseObj.reading || "";
-    const wordResult = japaneseObj.word || japaneseObj.reading || word;
+    if (!data || !Array.isArray(data.data) || data.data.length === 0)
+      return null;
 
-    // Normalizar definiciones: juntar todas las english_definitions
+    // Tomar la primera entrada válida
+    const first =
+      data.data.find((item) => item.senses && item.senses.length > 0) ||
+      data.data[0];
+
+    const jp = (first.japanese && first.japanese[0]) || {};
+    const reading = jp.reading || "";
+    const wordResult = jp.word || jp.reading || word;
+
+    // Juntar todas las definiciones
     let defs = [];
     if (Array.isArray(first.senses)) {
       for (const s of first.senses) {
@@ -353,21 +376,22 @@ async function fetchJisho(word){
       }
     }
 
-    // quitar duplicados y limpiar
-    defs = Array.from(new Set(defs.map(d => (d||"").trim()).filter(Boolean)));
+    // Quitar duplicados y limpiar
+    defs = Array.from(new Set(defs.map((d) => (d || "").trim()).filter(Boolean)));
 
-    // Si no hay defs, intentar ver si hay "tags" u otros campos útiles (opcional)
-    // (dejamos defs vacío si no hay)
-
-    return { word: wordResult, reading, defs };
+    return {
+      word: wordResult,
+      reading,
+      defs: defs.length ? defs : ["(sin definiciones encontradas)"],
+    };
   } catch (e) {
-    console.warn("Jisho fetch error:", e);
+    console.warn("⚠️ Jisho fetch error:", e);
     return null;
   }
 }
 
 // get translation: check cache first, then Jisho
-async function getTranslationFor(lemma){
+async function getTranslationFor(lemma) {
   if (!lemma) return null;
   if (jishoCache[lemma]) return jishoCache[lemma];
   const res = await fetchJisho(lemma);
@@ -603,4 +627,5 @@ function hideTooltipFor(node){
   </script>
 </body>
 </html>
+
 
