@@ -547,12 +547,19 @@ function hideTooltipFor(node){
     updateComparePanel(index);
   }
 
-  function updateComparePanel(index){
-    const jp = sentences[index];
-    const es = allEsSentences[translationIndex];
-    document.getElementById("jp-sentence").innerHTML = jp ? jp.innerHTML : "（Oración japonesa aparecerá aquí）";
-    document.getElementById("es-sentence").textContent = es ? es.innerText : "（Traducción en español aparecerá aquí）";
-  }
+ function updateComparePanel(index){
+  const jp = sentences[index];
+  const es = allEsSentences[translationIndex];
+
+  const jpContainer = document.getElementById("jp-sentence");
+  const esContainer = document.getElementById("es-sentence");
+
+  jpContainer.innerHTML = jp ? jp.innerHTML : "（Oración japonesa aparecerá aquí）";
+  esContainer.textContent = es ? es.innerText : "（Traducción en español aparecerá aquí）";
+
+  // ✅ Reconectar tooltips también en el cuadro comparativo
+  attachTooltipEvents(); 
+}
 
   /* ---------------------------
      Controls
@@ -627,5 +634,6 @@ function hideTooltipFor(node){
   </script>
 </body>
 </html>
+
 
 
