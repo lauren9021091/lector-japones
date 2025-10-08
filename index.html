@@ -11,7 +11,21 @@
        - ePub.js (lectura EPUB)
        - kuromoji.js (tokenización japonesa)
        ============================================================ -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+ <script>
+  // Esperar a que kuromoji esté disponible globalmente antes de usarlo
+  function waitForKuromoji() {
+    return new Promise((resolve, reject) => {
+      let tries = 0;
+      const check = () => {
+        if (window.kuromoji) return resolve(window.kuromoji);
+        if (tries++ > 20) return reject(new Error("kuromoji no cargó a tiempo"));
+        setTimeout(check, 250);
+      };
+      check();
+    });
+  }
+</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
@@ -305,9 +319,10 @@
      INICIALIZAR KUROMIJI (con logging y reintento si falla)
      - usa dicPath apuntando a CDN (funciona en GitHub Pages)
      ============================================================ */
-  function initKuromoji(retries = 2) {
-    return new Promise((resolve, reject) => {
-      if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
+  async function initKuromoji(retries = 2) {
+  await waitForKuromoji();
+  return new Promise((resolve, reject) => {
+    if (kuromojiTokenizer) return resolve(kuromojiTokenizer);
 
       // debug
       console.log("Cargando Kuromoji (diccionario desde CDN)...");
