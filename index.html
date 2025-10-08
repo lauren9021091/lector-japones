@@ -304,154 +304,179 @@
     allEsSentences = Array.from(cont.querySelectorAll(".sentence-es"));
   }
 
-  /* ---------------------------
-     Jisho API tooltip logic (online)
-     - cache in localStorage (key: jisho_cache)
-     - debounced requests to avoid bursts
-     --------------------------- */
-  const JISHO_CACHE_KEY = "jisho_cache_v1";
-  const jishoCache = (function(){ try { return JSON.parse(localStorage.getItem(JISHO_CACHE_KEY)) || {}; } catch { return {}; } })();
+ /* ---------------------------
+   Jisho API tooltip logic (online)
+   - cache in localStorage (key: jisho_cache_v1)
+   - debounced requests to avoid bursts
+   --------------------------- */
+const JISHO_CACHE_KEY = "jisho_cache_v1";
+const jishoCache = (function(){ try { return JSON.parse(localStorage.getItem(JISHO_CACHE_KEY)) || {}; } catch { return {}; } })();
 
-  function saveJishoCache(){ try { localStorage.setItem(JISHO_CACHE_KEY, JSON.stringify(jishoCache)); } catch(e){} }
+function saveJishoCache(){ try { localStorage.setItem(JISHO_CACHE_KEY, JSON.stringify(jishoCache)); } catch(e){} }
 
-  // Debounce utility
-  function debounce(fn, wait=250){
-    let t;
-    return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
-  }
+// Debounce utility
+function debounce(fn, wait=250){
+  let t;
+  return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
+}
 
-  // Fetch from Jisho; returns null or an object {word,reading,meanings[]}
-  async function fetchJisho(word){
-    try {
-      const q = encodeURIComponent(word);
-      const url = `https://jisho.org/api/v1/search/words?keyword=${q}`;
-      const r = await fetch(url);
-      if (!r.ok) return null;
-      const data = await r.json();
-      if (!data || !data.data || data.data.length===0) return null;
-      // take first result with senses
-      const first = data.data[0];
-      const wordEntry = {
-        word: first.japanese && first.japanese[0] && first.japanese[0].word ? first.japanese[0].word : (first.japanese[0] && first.japanese[0].reading ? first.japanese[0].reading : word),
-        reading: first.japanese && first.japanese[0] && first.japanese[0].reading ? first.japanese[0].reading : "",
-        senses: (first.senses || []).map(s => s.english_definitions ? s.english_definitions.join("; ") : "").filter(Boolean)
-      };
-      return wordEntry;
-    } catch (e) {
-      console.warn("Jisho fetch error:", e);
+// Fetch from Jisho; returns null or an object { word, reading, defs: [] }
+async function fetchJisho(word){
+  try {
+    const q = encodeURIComponent(word);
+    const url = `https://jisho.org/api/v1/search/words?keyword=${q}`;
+    const r = await fetch(url);
+    if (!r.ok) {
+      console.warn("Jisho HTTP error:", r.status);
       return null;
     }
-  }
+    const data = await r.json();
+    console.debug("Jisho raw response for", word, data); // <-- útil para depuración
 
-  // get translation: check cache first, then Jisho
-  async function getTranslationFor(lemma){
-    if (!lemma) return null;
-    if (jishoCache[lemma]) return jishoCache[lemma];
-    const res = await fetchJisho(lemma);
-    if (res) {
-      jishoCache[lemma] = res;
-      saveJishoCache();
-      return res;
+    if (!data || !Array.isArray(data.data) || data.data.length === 0) return null;
+
+    // tomar la primera entrada con senses
+    const first = data.data[0];
+    const japaneseObj = (first.japanese && first.japanese[0]) || {};
+    const reading = japaneseObj.reading || "";
+    const wordResult = japaneseObj.word || japaneseObj.reading || word;
+
+    // Normalizar definiciones: juntar todas las english_definitions
+    let defs = [];
+    if (Array.isArray(first.senses)) {
+      for (const s of first.senses) {
+        if (Array.isArray(s.english_definitions)) {
+          defs.push(...s.english_definitions);
+        } else if (s.english_definitions) {
+          defs.push(String(s.english_definitions));
+        }
+      }
     }
+
+    // quitar duplicados y limpiar
+    defs = Array.from(new Set(defs.map(d => (d||"").trim()).filter(Boolean)));
+
+    // Si no hay defs, intentar ver si hay "tags" u otros campos útiles (opcional)
+    // (dejamos defs vacío si no hay)
+
+    return { word: wordResult, reading, defs };
+  } catch (e) {
+    console.warn("Jisho fetch error:", e);
     return null;
   }
+}
 
-  /* ---------------------------
-     Tooltip events: attach/detach
-     --------------------------- */
-  function attachTooltipEvents(){
-    document.querySelectorAll(".lexword").forEach(node => {
-      // prevent duplicate
-      node.onmouseenter = null; node.onmouseleave = null; node.onclick = null;
-      node.addEventListener("mouseenter", onLexEnter);
-      node.addEventListener("mouseleave", onLexLeave);
-      node.addEventListener("click", onLexClick);
-    });
+// get translation: check cache first, then Jisho
+async function getTranslationFor(lemma){
+  if (!lemma) return null;
+  if (jishoCache[lemma]) return jishoCache[lemma];
+  const res = await fetchJisho(lemma);
+  if (res) {
+    jishoCache[lemma] = res;
+    saveJishoCache();
+    return res;
   }
+  return null;
+}
 
-  // Debounced wrapper to limit requests (per node)
-  const _pending = new WeakMap();
-  function onLexEnter(e){
-    const node = e.currentTarget;
-    // show immediate reading/mini if available
-    const surface = node.dataset.surface || node.textContent.trim();
-    const lemma = node.dataset.lemma || surface;
-    // immediate tooltip while fetching
-    const tooltip = node.querySelector(".tooltip");
-    if (miniDict[lemma]) {
-      tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(miniDict[lemma])}</div><div class="small">Fuente: miniDict</div>`;
-      node.classList.add("show-tooltip");
-      return;
-    } else {
-      tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>Buscando…</div>`;
-      node.classList.add("show-tooltip");
-    }
+/* ---------------------------
+   Tooltip events: attach/detach
+   --------------------------- */
+function attachTooltipEvents(){
+  document.querySelectorAll(".lexword").forEach(node => {
+    // prevent duplicate
+    node.onmouseenter = null; node.onmouseleave = null; node.onclick = null;
+    node.addEventListener("mouseenter", onLexEnter);
+    node.addEventListener("mouseleave", onLexLeave);
+    node.addEventListener("click", onLexClick);
+  });
+}
 
-    // if in cache, show quickly
-    if (jishoCache[lemma]) {
-      const entry = jishoCache[lemma];
-      tooltip.innerHTML = buildTooltipHtml(entry, surface);
-      return;
-    }
+// Debounced wrapper to limit requests (per node)
+const _pending = new WeakMap();
+function onLexEnter(e){
+  const node = e.currentTarget;
+  const surface = node.dataset.surface || node.textContent.trim();
+  const lemma = node.dataset.lemma || surface;
+  const tooltip = node.querySelector(".tooltip");
 
-    // else fetch (debounced per-node)
-    if (!_pending.has(node)) {
-      const fn = debounce(async () => {
-        try {
-          const entry = await getTranslationFor(lemma);
-          const tip = node.querySelector(".tooltip");
-          if (entry) {
-            tip.innerHTML = buildTooltipHtml(entry, surface);
-          } else {
-            // no result: show reading if any (rt)
-            const rt = node.querySelector("rt");
-            const fallback = rt ? `Lectura: ${rt.textContent}` : "(sin resultados)";
-            tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(fallback)}</div><div class="small">Fuente: Jisho.org</div>`;
-          }
-        } catch (err) {
-          const tip = node.querySelector(".tooltip");
-          tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>(error al consultar)</div>`;
-        }
-      }, 120); // slight debounce
-      _pending.set(node, fn);
-    }
-    // call
-    _pending.get(node)();
-  }
-
-  function buildTooltipHtml(entry, surface){
-    // entry: {word, reading, senses: [...]}
-    const title = escapeHtml(surface);
-    const reading = entry.reading ? ` (${escapeHtml(entry.reading)})` : "";
-    const defs = (entry.senses && entry.senses.length) ? entry.senses.slice(0,3).map(d=>escapeHtml(d)).join("<br>") : "(sin definiciones)";
-    return `<div class="title">${title}${reading}</div><div>${defs}</div><div class="small">Fuente: Jisho.org</div>`;
-  }
-
-  function onLexLeave(e){
-    const node = e.currentTarget;
-    hideTooltipFor(node);
-  }
-  function onLexClick(e){
-    const node = e.currentTarget;
-    // keep for a short while
-    showTooltipFor(node);
-    setTimeout(()=>hideTooltipFor(node), 3000);
-  }
-
-  function showTooltipFor(node){
-    const tip = node.querySelector(".tooltip");
-    if (tip && tip.innerHTML.trim()==="") {
-      const surface = node.dataset.surface || node.textContent.trim();
-      const rt = node.querySelector("rt");
-      tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${rt ? "Lectura: "+escapeHtml(rt.textContent) : "(sin datos)"} </div>`;
-    }
+  // Show immediate info if miniDict has it
+  if (miniDict[lemma]) {
+    tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(miniDict[lemma])}</div><div class="small">Fuente: miniDict</div>`;
     node.classList.add("show-tooltip");
+    return;
   }
-  function hideTooltipFor(node){
-    const tip = node.querySelector(".tooltip");
-    if (tip) tip.innerHTML = "";
-    node.classList.remove("show-tooltip");
+
+  // show searching state
+  tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>Buscando…</div>`;
+  node.classList.add("show-tooltip");
+
+  // If cached, show immediately
+  if (jishoCache[lemma]) {
+    const entry = jishoCache[lemma];
+    tooltip.innerHTML = buildTooltipHtmlFromEntry(entry, surface);
+    return;
   }
+
+  // else fetch (debounced per-node)
+  if (!_pending.has(node)) {
+    const fn = debounce(async () => {
+      try {
+        const entry = await getTranslationFor(lemma);
+        const tip = node.querySelector(".tooltip");
+        if (entry) {
+          tip.innerHTML = buildTooltipHtmlFromEntry(entry, surface);
+        } else {
+          // fallback: reading if rt present, else no results
+          const rt = node.querySelector("rt");
+          const fallback = rt ? `Lectura: ${rt.textContent}` : "(sin resultados)";
+          tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(fallback)}</div><div class="small">Fuente: Jisho.org</div>`;
+        }
+      } catch (err) {
+        const tip = node.querySelector(".tooltip");
+        tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>(error al consultar)</div>`;
+      }
+    }, 150);
+    _pending.set(node, fn);
+  }
+  _pending.get(node)();
+}
+
+function buildTooltipHtmlFromEntry(entry, surface){
+  // entry: {word, reading, defs: []}
+  const title = escapeHtml(surface);
+  const reading = entry.reading ? ` (${escapeHtml(entry.reading)})` : "";
+  const defsArr = Array.isArray(entry.defs) ? entry.defs : [];
+  const defsHtml = defsArr.length ? defsArr.slice(0,3).map(d => escapeHtml(d)).join("<br>") : "(sin definiciones)";
+  return `<div class="title">${title}${reading}</div><div>${defsHtml}</div><div class="small">Fuente: Jisho.org</div>`;
+}
+
+function onLexLeave(e){
+  const node = e.currentTarget;
+  hideTooltipFor(node);
+}
+function onLexClick(e){
+  const node = e.currentTarget;
+  // keep for a short while
+  showTooltipFor(node);
+  setTimeout(()=>hideTooltipFor(node), 3000);
+}
+
+function showTooltipFor(node){
+  const tip = node.querySelector(".tooltip");
+  if (tip && tip.innerHTML.trim()==="") {
+    const surface = node.dataset.surface || node.textContent.trim();
+    const rt = node.querySelector("rt");
+    tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${rt ? "Lectura: "+escapeHtml(rt.textContent) : "(sin datos)"} </div>`;
+  }
+  node.classList.add("show-tooltip");
+}
+function hideTooltipFor(node){
+  const tip = node.querySelector(".tooltip");
+  if (tip) tip.innerHTML = "";
+  node.classList.remove("show-tooltip");
+}
+
 
   /* ---------------------------
      TTS: Web Speech API
@@ -578,3 +603,4 @@
   </script>
 </body>
 </html>
+
