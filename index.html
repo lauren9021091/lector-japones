@@ -26,30 +26,20 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
 
-  <!-- === Carga garantizada de Kuromoji === -->
-  <script>
-    // Promesa global: asegura que kuromoji esté disponible antes de su uso
-    window.kuromojiReady = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js";
-      script.onload = () => {
-        console.log("✅ kuromoji.js cargado correctamente");
-        resolve(window.kuromoji);
-      };
-      script.onerror = () => reject(new Error("❌ No se pudo cargar kuromoji.js"));
-      document.head.appendChild(script);
-    });
-
-    // Función auxiliar para esperar la disponibilidad de kuromoji
-    async function waitForKuromoji() {
-      try {
-        return await window.kuromojiReady;
-      } catch (e) {
-        console.error("Error cargando kuromoji:", e);
-        throw e;
-      }
+  <!-- === Kuromoji.js (tokenizador japonés con carga directa) === -->
+<script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dist/kuromoji.js"></script>
+<script>
+  // Espera activa hasta que window.kuromoji esté disponible
+  async function waitForKuromoji() {
+    let tries = 0;
+    while (!window.kuromoji) {
+      if (tries++ > 60) throw new Error("Kuromoji no cargó a tiempo");
+      await new Promise(r => setTimeout(r, 250));
     }
-  </script>
+    console.log("✅ Kuromoji disponible en memoria.");
+    return window.kuromoji;
+  }
+</script>
   <!-- ============================================================
        Estilos — versión moderna (extendida)
        Comentarios y separadores para facilitar edición.
