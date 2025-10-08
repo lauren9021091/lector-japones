@@ -532,7 +532,15 @@ function hideTooltipFor(node){
     u.rate = parseFloat(rateInput.value) || 1;
     u.lang = "ja-JP";
     highlightSentence(index);
-    u.onend = ()=>{ if (!isPaused && index < sentences.length-1){ currentSentence++; speakSentence(currentSentence); } };
+    u.onend = () => {
+  if (!isPaused && index < sentences.length - 1) {
+    currentSentence++;
+    // 🔧 sincronizar traducción automáticamente
+    translationIndex = Math.min(currentSentence, allEsSentences.length - 1);
+    highlightSentence(currentSentence); // 🔧 refresca ambas vistas
+    speakSentence(currentSentence);
+  }
+};
     synth.speak(u);
   }
 
@@ -649,6 +657,7 @@ function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
   </script>
 </body>
 </html>
+
 
 
 
