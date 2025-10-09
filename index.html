@@ -645,22 +645,25 @@ async function fetchJisho(word) {
 
 
   // get translation: check cache first, then Jisho
- async function getTranslationFor(word) {
-  const json = await fetchJisho(word);
+ // get translation: check cache first, then Jisho
+async function getTranslationFor(surface, lemma) {
+  // 👉 Prioriza lemma (forma de diccionario) si existe, de lo contrario usa surface
+  const query = lemma && lemma !== "*" ? lemma : surface;
+
+  const json = await fetchJisho(query);
   if (!json || !json.data || !json.data.length) {
-    console.warn("❌ Sin resultados para", word);
+    console.warn("❌ Sin resultados para", query);
     return null;
   }
 
   const entry = json.data[0];
-  const kanji = entry.japanese[0]?.word || word;
+  const kanji = entry.japanese[0]?.word || query;
   const reading = entry.japanese[0]?.reading || "";
-  const meanings = entry.senses
-    .map(s => s.english_definitions.join(", "))
-    .join("; ");
+  const meanings = entry.senses.map(s => s.english_definitions.join(", "));
 
-  return { kanji, reading, meanings };
+  return { kanji, reading, senses: meanings };
 }
+
 
 
   /* ---------------------------
@@ -729,8 +732,7 @@ async function fetchJisho(word) {
   if (!_pending.has(node)) {
     const fn = debounce(async () => {
       try {
-        const entry = await getTranslationFor(lemma);
-        const tip = node.querySelector(".tooltip");
+const entry = await getTranslationFor(surface, lemma);        const tip = node.querySelector(".tooltip");
 
         if (entry) {
           tip.innerHTML = buildTooltipHtml(entry, surface);
