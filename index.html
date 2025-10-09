@@ -661,7 +661,7 @@ async function getTranslationFor(surface, lemma) {
   const reading = entry.japanese[0]?.reading || "";
   const meanings = entry.senses.map(s => s.english_definitions.join(", "));
 
-  return { kanji, reading, senses: meanings };
+  return { kanji, reading, meanings };
 }
 
 
