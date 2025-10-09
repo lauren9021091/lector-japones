@@ -604,15 +604,14 @@ if (ext === "epub") {
     return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
   }
 
-  // Fetch from Jisho; returns null or an object {word,reading,meanings[]}
-  async function fetchJisho(word) {
+// Fetch from Jisho; returns null or an object {word,reading,meanings[]}
+async function fetchJisho(word) {
   const target = `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(word)}`;
-  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+  const proxy = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`;
 
   try {
     const res = await fetch(proxy);
-    const data = await res.json();
-    const json = JSON.parse(data.contents);
+    const json = await res.json();
     return json;
   } catch (err) {
     console.error("Jisho fetch error:", err);
@@ -1002,6 +1001,7 @@ window.addEventListener("load", async () => {
 <div id="top-buttons">
   <button id="export-anki" title="Exportar baraja">📥</button>
   <button id="theme-toggle" title="Cambiar tema">🌙</button>
+  <button id="export-anki">💾 Exportar baraja Anki</button>
 </div>
 </body>
 </html>
