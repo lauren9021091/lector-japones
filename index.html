@@ -611,13 +611,30 @@ async function fetchJisho(word) {
 
   try {
     const res = await fetch(proxy);
-    const json = await res.json();
+    const text = await res.text();
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.warn("Proxy devolvió texto, intentando extraer JSON...");
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      json = JSON.parse(text.substring(start, end + 1));
+    }
+
+    if (!json || !json.data || json.data.length === 0) {
+      console.warn("Sin resultados en Jisho para:", word);
+      return null;
+    }
+
     return json;
   } catch (err) {
     console.error("Jisho fetch error:", err);
     return null;
   }
 }
+
 
   // get translation: check cache first, then Jisho
   async function getTranslationFor(lemma){
