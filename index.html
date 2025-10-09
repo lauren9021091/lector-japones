@@ -486,38 +486,42 @@ async function readFile(file) {
   }
 
   // 📚 EPUB
-  if (ext === "epub") {
-    try {
-      const book = ePub(await file.arrayBuffer());
-      await book.ready; // asegura carga completa
-      const spineItems = book.spine?.spineItems || [];
-      if (!spineItems.length) {
-        console.warn("⚠️ EPUB sin spineItems.");
-        return "";
-      }
+if (ext === "epub") {
+  try {
+    const book = ePub(await file.arrayBuffer());
+    await book.ready; // Espera a que cargue todo
 
-      let text = "";
-      for (const item of spineItems) {
-        try {
-          const section = await item.load(book.load.bind(book));
-          const html = section.document.body.innerHTML;
-          const clean = html
-            .replace(/<script[^>]*>.*?<\/script>/gi, '')
-            .replace(/<style[^>]*>.*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          text += clean + "\n";
-        } catch (err) {
-          console.warn("Error leyendo sección EPUB:", err);
-        }
-      }
-      return text;
-    } catch (e) {
-      console.error("Error EPUB:", e);
+    const spineItems = book.spine?.spineItems || [];
+    if (!spineItems.length) {
+      console.warn("⚠️ EPUB sin spineItems válidos.");
       return "";
     }
+
+    let text = "";
+    for (const item of spineItems) {
+      try {
+        // 📖 Cargar cada capítulo como texto plano
+        const content = await item.load(book.load.bind(book));
+        const html = await item.render(); // genera HTML de la sección
+        const raw = html?.text || html || "";
+        const clean = raw
+          .replace(/<script[^>]*>.*?<\/script>/gi, "")
+          .replace(/<style[^>]*>.*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        text += clean + "\n";
+      } catch (err) {
+        console.warn("Error leyendo sección EPUB:", err);
+      }
+    }
+
+    return text;
+  } catch (e) {
+    console.error("Error EPUB:", e);
+    return "";
   }
+}
 
   alert("Formato no soportado: " + ext);
   return "";
