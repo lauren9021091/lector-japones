@@ -831,8 +831,8 @@ function getReadingFromKuromoji(text) {
   const reading = getReadingFromKuromoji(jp);
 
   // Obtener la traducción actual del recuadro (si ya se mostró)
-  const translationBox = document.getElementById("es-output");
-  const translation = translationBox ? translationBox.textContent.trim() : "";
+  const translationBox = document.getElementById("es-sentence");
+const translation = translationBox ? translationBox.textContent.trim() : "";
 
   // Registrar la expresión si no estaba
   if (!consultedExpressions.some(e => e.jp === jp)) {
@@ -886,12 +886,35 @@ function getReadingFromKuromoji(text) {
     }
     populateVoices();
     console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
+  // 🪄 Exportar baraja Anki al hacer clic
+  document.getElementById("export-anki").addEventListener("click", async () => {
+    let lines = [];
+
+    // Palabras consultadas
+    for (const w of consultedWords) {
+      lines.push(`${w.kanji}\t${w.reading}<br>${w.meaning}`);
+    }
+
+    // Expresiones consultadas
+    for (const e of consultedExpressions) {
+      const hira = e.reading || getReadingFromKuromoji(e.jp);
+      lines.push(`${e.jp}\t${hira}<br>${e.translation}`);
+    }
+
+    const content = lines.join("\n");
+    const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `baraja_anki_${new Date().toISOString().split("T")[0]}.tsv`;
+    a.click();
+    URL.revokeObjectURL(url);
   });
-  /* ---------------------------
+  });
+   // ---------------------------
+  // Exportar baraja para Anki
   // ---------------------------
-// Exportar baraja para Anki
-// ---------------------------
-document.getElementById("export-anki").addEventListener("click", async () => {
+  document.getElementById("export-anki").addEventListener("click", async () => {
   let lines = [];
 
   // 🔹 PALABRAS CONSULTADAS
