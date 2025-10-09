@@ -458,40 +458,70 @@ let consultedExpressions = []; // expresiones analizadas con ChatGPT
 
   /* ---------------------------
      LECTURA DE ARCHIVOS: txt / pdf / epub
-     --------------------------- */
-  async function readFile(file){
-    const ext = (file.name||"").split('.').pop().toLowerCase();
-    if (ext==="txt") return await file.text();
-    if (ext==="pdf"){
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let text = "";
-        for (let i=1;i<=pdf.numPages;i++){
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          text += content.items.map(it=>it.str).join(' ') + "\n";
-        }
-        return text;
-      } catch(e){ console.error("Error leyendo PDF:", e); return ""; }
-    }
-    if (ext==="epub"){
-      try {
-        const book = ePub(await file.arrayBuffer());
-        const spine = await book.loaded.spine;
-        let text="";
-        for (const item of spine){
-          try {
-            const content = await book.load(item.href);
-            text += new TextDecoder("utf-8").decode(content);
-          } catch(err){ console.warn("Error leyendo item EPUB:", err); }
-        }
-        return text.replace(/<[^>]+>/g,' ');
-      } catch(e){ console.error("Error EPUB:", e); return ""; }
-    }
-    alert("Formato no soportado: " + ext);
-    return "";
+--------------------------- */
+async function readFile(file) {
+  const ext = (file.name || "").split('.').pop().toLowerCase();
+
+  // 📄 TXT
+  if (ext === "txt") {
+    return await file.text();
   }
+
+  // 📘 PDF
+  if (ext === "pdf") {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(it => it.str).join(' ') + "\n";
+      }
+      return text;
+    } catch (e) {
+      console.error("Error leyendo PDF:", e);
+      return "";
+    }
+  }
+
+  // 📚 EPUB
+  if (ext === "epub") {
+    try {
+      const book = ePub(await file.arrayBuffer());
+      await book.ready; // asegura carga completa
+      const spineItems = book.spine?.spineItems || [];
+      if (!spineItems.length) {
+        console.warn("⚠️ EPUB sin spineItems.");
+        return "";
+      }
+
+      let text = "";
+      for (const item of spineItems) {
+        try {
+          const section = await item.load(book.load.bind(book));
+          const html = section.document.body.innerHTML;
+          const clean = html
+            .replace(/<script[^>]*>.*?<\/script>/gi, '')
+            .replace(/<style[^>]*>.*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          text += clean + "\n";
+        } catch (err) {
+          console.warn("Error leyendo sección EPUB:", err);
+        }
+      }
+      return text;
+    } catch (e) {
+      console.error("Error EPUB:", e);
+      return "";
+    }
+  }
+
+  alert("Formato no soportado: " + ext);
+  return "";
+}
 
   /* ---------------------------
      Segmentación + Furigana con Kuromoji
@@ -880,54 +910,64 @@ const translation = translationBox ? translationBox.textContent.trim() : "";
   document.getElementById("file1").addEventListener("change", e=>{ const f=e.target.files?.[0]; if(f) handleFileInput(f,"jp"); });
   document.getElementById("file2").addEventListener("change", e=>{ const f=e.target.files?.[0]; if(f) handleFileInput(f,"es"); });
 
-  /* ---------------------------
-     Inicialización
-     --------------------------- */
-  window.addEventListener("load", async ()=>{
-    try {
-      await initKuromoji();
-    } catch(err){
-      console.warn("Kuromoji inicialización fallo (seguimos sin furigana):", err);
-    }
-    populateVoices();
-    console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
-  // 🪄 Exportar baraja Anki al hacer clic
-  document.getElementById("export-anki").addEventListener("click", async () => {
-    let lines = [];
+/* ---------------------------
+   Inicialización
+--------------------------- */
+window.addEventListener("load", async () => {
+  try {
+    await initKuromoji();
+  } catch (err) {
+    console.warn("Kuromoji inicialización falló (seguimos sin furigana):", err);
+  }
 
-    // Palabras consultadas
-    for (const w of consultedWords) {
-      lines.push(`${w.kanji}\t${w.reading}<br>${w.meaning}`);
-    }
+  populateVoices();
+  console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
 
-    // Expresiones consultadas
-    for (const e of consultedExpressions) {
-      const hira = e.reading || getReadingFromKuromoji(e.jp);
-      lines.push(`${e.jp}\t${hira}<br>${e.translation}`);
-    }
+  // 🪄 Exportar baraja Anki al hacer clic (solo si el botón existe)
+  const exportBtn = document.getElementById("export-anki");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", async () => {
+      let lines = [];
 
-    const content = lines.join("\n");
-    const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `baraja_anki_${new Date().toISOString().split("T")[0]}.tsv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-    // 🌙 MODO OSCURO / CLARO
+      // Palabras consultadas
+      for (const w of consultedWords) {
+        lines.push(`${w.kanji}\t${w.reading}<br>${w.meaning}`);
+      }
+
+      // Expresiones consultadas
+      for (const e of consultedExpressions) {
+        const hira = e.reading || getReadingFromKuromoji(e.jp);
+        lines.push(`${e.jp}\t${hira}<br>${e.translation}`);
+      }
+
+      const content = lines.join("\n");
+      const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `baraja_anki_${new Date().toISOString().split("T")[0]}.tsv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // 🌙 MODO OSCURO / CLARO (solo si el botón existe)
   const themeToggle = document.getElementById("theme-toggle");
-  const saved = localStorage.getItem("themeMode") || "light";
-  document.documentElement.setAttribute("data-theme", saved);
-  themeToggle.textContent = saved === "dark" ? "☀️" : "🌙";
-  themeToggle.addEventListener("click", () => {
-    const current = document.documentElement.getAttribute("data-theme");
-    const next = current === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    themeToggle.textContent = next === "dark" ? "☀️" : "🌙";
-    localStorage.setItem("themeMode", next);
-  });
+  if (themeToggle) {
+    const saved = localStorage.getItem("themeMode") || "light";
+    document.documentElement.setAttribute("data-theme", saved);
+    themeToggle.textContent = saved === "dark" ? "☀️" : "🌙";
+
+    themeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      themeToggle.textContent = next === "dark" ? "☀️" : "🌙";
+      localStorage.setItem("themeMode", next);
+    });
+  }
 });
+
    // ---------------------------
   // Exportar baraja para Anki
   // ---------------------------
