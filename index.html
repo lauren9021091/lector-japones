@@ -66,27 +66,31 @@
        ============================ -->
   <style>
 :root {
-  --bg: #f7f8fa;
-  --panel: #ffffff;
-  --text: #111827;
-  --muted: #6b7280;
-  --accent: #6c8cff;
-  --border: #e6e9ef;
+  --bg: #f9f6ef;        /* fondo crema */
+  --panel: #fffdf8;     /* panel blanco cálido */
+  --text: #2a2a2a;      /* texto principal */
+  --muted: #6b6b6b;     /* texto secundario */
+  --accent: #a67c52;    /* marrón dorado */
+  --border: #e4dfd3;    /* borde suave */
 }
 
 /* 🌙 Modo oscuro */
 [data-theme="dark"] {
-  --bg: #0e0f11;
-  --panel: #1a1b1e;
-  --text: #f3f4f6;
-  --muted: #9ca3af;
-  --accent: #90aaff;
-  --border: #2a2b2e;
+  --bg: #121212;
+  --panel: #1e1e1e;
+  --text: #f3f3f3;
+  --muted: #b0b0b0;
+  --accent: #d4af7a;
+  --border: #2a2a2a;
 }
 
 * {
   box-sizing: border-box;
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+body {
+  transition: background-color 0.4s ease, color 0.4s ease;
+  font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
 }
 html, body {
   height: 100%;
