@@ -88,16 +88,41 @@
   box-sizing: border-box;
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
-body {
-  transition: background-color 0.4s ease, color 0.4s ease;
-  font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
-}
+
 html, body {
   height: 100%;
   margin: 0;
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial;
+  font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+#top-buttons {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 12px;
+  z-index: 100;
+}
+
+#top-buttons button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+#top-buttons button:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 /* --------- ENCABEZADO --------- */
@@ -351,8 +376,6 @@ ruby rt {
     </div>
   </div>
 
-  <div id="debug">debug</div>
-
   <!-- ============================
        SCRIPT PRINCIPAL
        - Kuromoji local (./dict/)
@@ -360,6 +383,11 @@ ruby rt {
        - Cache en localStorage
        ============================ -->
   <script>
+    /* ======================
+   VARIABLES GLOBALES
+   ====================== */
+let consultedWords = [];       // palabras consultadas con el mouse
+let consultedExpressions = []; // expresiones analizadas con ChatGPT
   /* ---------------------------
      Mini-diccionario offline fallback (no obligatorio)
      --------------------------- */
@@ -588,53 +616,97 @@ ruby rt {
 
   // Debounced wrapper to limit requests (per node)
   const _pending = new WeakMap();
-  function onLexEnter(e){
-    const node = e.currentTarget;
-    // show immediate reading/mini if available
-    const surface = node.dataset.surface || node.textContent.trim();
-    const lemma = node.dataset.lemma || surface;
-    // immediate tooltip while fetching
-    const tooltip = node.querySelector(".tooltip");
-    if (miniDict[lemma]) {
-      tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(miniDict[lemma])}</div><div class="small">Fuente: miniDict</div>`;
-      node.classList.add("show-tooltip");
-      return;
-    } else {
-      tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>Buscando…</div>`;
-      node.classList.add("show-tooltip");
-    }
+  function onLexEnter(e) {
+  const node = e.currentTarget;
 
-    // if in cache, show quickly
-    if (jishoCache[lemma]) {
-      const entry = jishoCache[lemma];
-      tooltip.innerHTML = buildTooltipHtml(entry, surface);
-      return;
-    }
+  // 🔹 Obtener texto base y forma de diccionario
+  const surface = node.dataset.surface || node.textContent.trim();
+  const lemma = node.dataset.lemma || surface;
 
-    // else fetch (debounced per-node)
-    if (!_pending.has(node)) {
-      const fn = debounce(async () => {
-        try {
-          const entry = await getTranslationFor(lemma);
-          const tip = node.querySelector(".tooltip");
-          if (entry) {
-            tip.innerHTML = buildTooltipHtml(entry, surface);
-          } else {
-            // no result: show reading if any (rt)
-            const rt = node.querySelector("rt");
-            const fallback = rt ? `Lectura: ${rt.textContent}` : "(sin resultados)";
-            tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(fallback)}</div><div class="small">Fuente: Jisho.org</div>`;
-          }
-        } catch (err) {
-          const tip = node.querySelector(".tooltip");
-          tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>(error al consultar)</div>`;
-        }
-      }, 120); // slight debounce
-      _pending.set(node, fn);
+  // 🔹 Crear tooltip (mostrar mientras busca)
+  const tooltip = node.querySelector(".tooltip");
+  tooltip.innerHTML = `
+    <div class="title">${escapeHtml(surface)}</div>
+    <div>Buscando…</div>
+  `;
+  node.classList.add("show-tooltip");
+
+  // 🔹 Mostrar de inmediato si ya está en miniDic
+  if (miniDict[lemma]) {
+    tooltip.innerHTML = `
+      <div class="title">${escapeHtml(surface)}</div>
+      <div>${escapeHtml(miniDict[lemma])}</div>
+      <div class="small">Fuente: miniDict</div>
+    `;
+    // Registrar palabra si no estaba
+    if (!consultedWords.some(w => w.kanji === lemma)) {
+      consultedWords.push({
+        kanji: lemma,
+        reading: node.dataset.reading || "",
+        meaning: miniDict[lemma]
+      });
     }
-    // call
-    _pending.get(node)();
+    return;
   }
+
+  // 🔹 Mostrar si ya está en caché (Jisho)
+  if (jishoCache[lemma]) {
+    const entry = jishoCache[lemma];
+    tooltip.innerHTML = buildTooltipHtml(entry, surface);
+
+    const reading = entry.reading ? kanaKatakanaToHiragana(entry.reading) : "";
+    const meaning = entry.senses ? entry.senses.join("; ") : "";
+
+    if (!consultedWords.some(w => w.kanji === lemma)) {
+      consultedWords.push({ kanji: lemma, reading, meaning });
+    }
+    return;
+  }
+
+  // 🔹 Si no está en cache, consultar a Jisho (con debounce)
+  if (!_pending.has(node)) {
+    const fn = debounce(async () => {
+      try {
+        const entry = await getTranslationFor(lemma);
+        const tip = node.querySelector(".tooltip");
+
+        if (entry) {
+          tip.innerHTML = buildTooltipHtml(entry, surface);
+
+          const reading = entry.reading
+            ? kanaKatakanaToHiragana(entry.reading)
+            : "";
+          const meaning = entry.senses ? entry.senses.join("; ") : "";
+
+          if (!consultedWords.some(w => w.kanji === lemma)) {
+            consultedWords.push({ kanji: lemma, reading, meaning });
+          }
+        } else {
+          const rt = node.querySelector("rt");
+          const fallback = rt
+            ? `Lectura: ${rt.textContent}`
+            : "(sin resultados)";
+          tip.innerHTML = `
+            <div class="title">${escapeHtml(surface)}</div>
+            <div>${escapeHtml(fallback)}</div>
+            <div class="small">Fuente: Jisho.org</div>
+          `;
+        }
+      } catch (err) {
+        const tip = node.querySelector(".tooltip");
+        tip.innerHTML = `
+          <div class="title">${escapeHtml(surface)}</div>
+          <div>(error al consultar)</div>
+        `;
+      }
+    }, 120);
+    _pending.set(node, fn);
+  }
+
+  // 🔹 Ejecutar búsqueda
+  _pending.get(node)();
+}
+
 
   function buildTooltipHtml(entry, surface){
     // entry: {word, reading, senses: [...]}
@@ -721,7 +793,12 @@ ruby rt {
     document.getElementById("jp-sentence").innerHTML = jp ? jp.innerHTML : "（Oración japonesa aparecerá aquí）";
     document.getElementById("es-sentence").textContent = es ? es.innerText : "（Traducción en español aparecerá aquí）";
   }
-
+// Obtener lectura completa en hiragana usando Kuromoji
+function getReadingFromKuromoji(text) {
+  if (!kuromojiTokenizer || !text) return "";
+  const tokens = kuromojiTokenizer.tokenize(text);
+  return tokens.map(t => kanaKatakanaToHiragana(t.reading || t.surface_form)).join("");
+}
   /* ---------------------------
      Controls
      --------------------------- */
@@ -746,8 +823,26 @@ ruby rt {
 
   document.getElementById("prev-translation").addEventListener("click", ()=>{ if(translationIndex>0) translationIndex--; updateComparePanel(currentSentence); });
   document.getElementById("next-translation").addEventListener("click", ()=>{ if(translationIndex < allEsSentences.length-1) translationIndex++; updateComparePanel(currentSentence); });
-  document.getElementById("explain-jp").addEventListener("click", ()=>{ const jp=extractPlainText(sentences[currentSentence]||{}); const q=`Explica el significado de la oración en japonés \"${jp}\" en español`; window.open(`https://chat.openai.com/?q=${encodeURIComponent(q)}`,"_blank"); });
+ document.getElementById("explain-jp").addEventListener("click", ()=>{
+  const jp = extractPlainText(sentences[currentSentence] || {});
+  if (!jp) return;
 
+  // Obtener lectura completa (hiragana)
+  const reading = getReadingFromKuromoji(jp);
+
+  // Obtener la traducción actual del recuadro (si ya se mostró)
+  const translationBox = document.getElementById("es-output");
+  const translation = translationBox ? translationBox.textContent.trim() : "";
+
+  // Registrar la expresión si no estaba
+  if (!consultedExpressions.some(e => e.jp === jp)) {
+    consultedExpressions.push({ jp, reading, translation });
+  }
+
+  // Abrir ChatGPT (igual que antes)
+  const q = `Explica el significado de la oración en japonés \"${jp}\" en español`;
+  window.open(`https://chat.openai.com/?q=${encodeURIComponent(q)}`,"_blank");
+});
   document.addEventListener("keydown", e=>{
     if (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
     if (e.key==="a"||e.key==="A"){ e.preventDefault(); prevSentence(); }
@@ -793,7 +888,38 @@ ruby rt {
     console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
   });
   /* ---------------------------
-   /* ---------------------------
+  // ---------------------------
+// Exportar baraja para Anki
+// ---------------------------
+document.getElementById("export-anki").addEventListener("click", async () => {
+  let lines = [];
+
+  // 🔹 PALABRAS CONSULTADAS
+  for (const lemma of consultedWords) {
+    const entry = jishoCache[lemma] || await getTranslationFor(lemma);
+    const reading = entry?.reading ? kanaKatakanaToHiragana(entry.reading) : "";
+    const meanings = entry?.senses ? entry.senses.join("; ") : "(sin traducción)";
+    lines.push(`${lemma}\t${reading}<br>${meanings}`);
+  }
+
+  // 🔹 EXPRESIONES ANALIZADAS
+  for (const exp of consultedExpressions) {
+    const { jp, reading, translation } = exp;
+    const hira = reading || getReadingFromKuromoji(jp);
+    lines.push(`${jp}\t${hira}<br>${translation || "(sin traducción)"}`);
+  }
+
+  // 📦 Crear y descargar archivo TSV
+  const content = lines.join("\n");
+  const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "baraja_anki.tsv";
+  a.click();
+  URL.revokeObjectURL(url);
+}); 
+  /* ---------------------------
    MODO OSCURO / CLARO
    --------------------------- */
 window.addEventListener("DOMContentLoaded", () => {
@@ -817,7 +943,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
   </script>
-  <!-- 🔘 Botón modo oscuro -->
+  <!-- 🔘 Botones superiores -->
+<div id="top-buttons">
+  <button id="export-anki" title="Exportar baraja">📥</button>
   <button id="theme-toggle" title="Cambiar tema">🌙</button>
+</div>
 </body>
 </html>
