@@ -65,35 +65,248 @@
        Estilos (moderno)
        ============================ -->
   <style>
-    :root{
-      --bg:#fbfbfd; --panel:#ffffff; --muted:#6b7280; --accent:#6c8cff; --border:#e6e9ef;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Helvetica Neue",Arial;color:#111827}
-    h1.page-title{margin:12px 20px;font-size:1.18rem;font-weight:700}
-    #top-bar{display:flex;gap:1rem;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:60}
-    #container{display:flex;gap:12px;padding:18px;height:calc(100vh - 25vh - 120px)}
-    #text1,#text2{width:50%;padding:18px;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;line-height:1.9;font-size:1.05rem;min-height:120px;white-space:pre-wrap}
-    ruby rt{font-size:.65em;color:#374151;font-weight:600}
-    .sentence{display:inline;padding:2px 6px;border-radius:6px;cursor:text}
-    .sentence.active-sentence{background:rgba(108,140,255,0.12)}
-    .sentence-es{display:inline;padding:2px 6px;border-radius:6px}
-    .sentence-es.active-sentence-es{background:rgba(102,204,255,0.12)}
-    #bottom-bar{position:fixed;bottom:0;left:0;width:100%;height:25vh;display:flex;gap:12px;border-top:1px solid var(--border);background:rgba(255,255,255,0.96);z-index:70;padding:12px;align-items:center}
-    #voice-panel{width:18%;min-width:180px;border-right:1px solid var(--border);padding-right:12px;display:flex;flex-direction:column;gap:8px}
-    #compare-panel{flex:1;display:flex;flex-direction:column;gap:8px;align-items:center}
-    #jp-sentence{width:95%;text-align:center;font-size:1.08rem;font-weight:600;color:#07103a}
-    #es-sentence{width:95%;text-align:center;font-size:.98rem;color:var(--muted);min-height:2.4em}
-    .icon{background:linear-gradient(180deg,#fff,#f6f9ff);border:1px solid var(--border);padding:6px 10px;border-radius:8px;cursor:pointer}
-    .lexword{position:relative;padding:0 2px;border-radius:4px}
-    .lexword:hover{background:rgba(255,208,138,0.14)}
-    .tooltip{position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#0b1220;color:#fff;padding:8px 10px;border-radius:8px;font-size:.9rem;box-shadow:0 6px 18px rgba(2,6,23,.3);white-space:nowrap;z-index:9999;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
-    .tooltip .title{font-weight:700;margin-bottom:4px}
-    .lexword.show-tooltip .tooltip{opacity:1;transform:translateX(-50%) translateY(-4px);pointer-events:auto}
-    .tooltip .small{font-size:.8rem;color:#e6e6e6;margin-top:6px}
-    @media(max-width:900px){#container{flex-direction:column;height:calc(50vh - 72px)}#text1,#text2{width:100%}#voice-panel{width:30%}}
-    #debug{position:fixed;top:12px;right:12px;background:rgba(0,0,0,0.7);color:#fff;padding:8px 10px;border-radius:6px;font-size:12px;z-index:2000;display:none}
-  </style>
+:root {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #6c8cff;
+  --border: #e6e9ef;
+}
+
+/* 🌙 Modo oscuro */
+[data-theme="dark"] {
+  --bg: #0e0f11;
+  --panel: #1a1b1e;
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --accent: #90aaff;
+  --border: #2a2b2e;
+}
+
+* {
+  box-sizing: border-box;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* --------- ENCABEZADO --------- */
+h1.page-title {
+  margin: 14px 20px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+#top-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  border-radius: 0 0 20px 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+
+/* --------- CONTENIDO PRINCIPAL --------- */
+#container {
+  display: flex;
+  gap: 18px;
+  padding: 18px;
+  height: calc(100vh - 25vh - 120px);
+}
+
+#text1, #text2 {
+  width: 50%;
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  line-height: 1.9;
+  font-size: 1.05rem;
+  min-height: 120px;
+  white-space: pre-wrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+/* --------- ORACIONES --------- */
+ruby rt {
+  font-size: .65em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.sentence {
+  display: inline;
+  padding: 3px 8px;
+  border-radius: 10px;
+  cursor: text;
+}
+.sentence.active-sentence {
+  background: rgba(108,140,255,0.14);
+}
+.sentence-es {
+  display: inline;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+.sentence-es.active-sentence-es {
+  background: rgba(102,204,255,0.12);
+}
+
+/* --------- PANEL INFERIOR --------- */
+#bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 25vh;
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 70;
+  padding: 12px;
+  align-items: center;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+}
+
+#voice-panel {
+  width: 18%;
+  min-width: 180px;
+  border-right: 1px solid var(--border);
+  padding-right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#compare-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+#jp-sentence {
+  width: 95%;
+  text-align: center;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--text);
+}
+#es-sentence {
+  width: 95%;
+  text-align: center;
+  font-size: .98rem;
+  color: var(--muted);
+  min-height: 2.4em;
+}
+
+/* --------- BOTONES --------- */
+.icon {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.icon:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* --------- TOOLTIP --------- */
+.lexword {
+  position: relative;
+  padding: 0 2px;
+  border-radius: 6px;
+}
+.lexword:hover {
+  background: rgba(255,208,138,0.14);
+}
+.tooltip {
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0b1220;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: .9rem;
+  box-shadow: 0 6px 18px rgba(2,6,23,.3);
+  white-space: nowrap;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s, transform .12s;
+}
+.lexword.show-tooltip .tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+  pointer-events: auto;
+}
+.tooltip .title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.tooltip .small {
+  font-size: .8rem;
+  color: #e6e6e6;
+  margin-top: 6px;
+}
+
+/* --------- BOTÓN MODO OSCURO --------- */
+#theme-toggle {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  transition: transform 0.2s ease;
+}
+#theme-toggle:hover {
+  transform: rotate(20deg) scale(1.05);
+}
+
+@media (max-width: 900px) {
+  #container {
+    flex-direction: column;
+    height: calc(50vh - 72px);
+  }
+  #text1, #text2 {
+    width: 100%;
+  }
+  #voice-panel {
+    width: 30%;
+  }
+}
+</style>
 </head>
 <body>
   <h1 class="page-title">Lector Japonés - Comparativo y Voz (Jisho tooltips)</h1>
@@ -304,203 +517,154 @@
     allEsSentences = Array.from(cont.querySelectorAll(".sentence-es"));
   }
 
- /* ---------------------------
-   Jisho API tooltip logic (con proxy CORS compatible)
-   - Usa https://api.allorigins.win/raw para evitar el error CORS
-   - Cachea resultados en localStorage (key: jisho_cache_v1)
-   --------------------------- */
-const JISHO_CACHE_KEY = "jisho_cache_v1";
-const jishoCache = (function () {
-  try {
-    return JSON.parse(localStorage.getItem(JISHO_CACHE_KEY)) || {};
-  } catch {
-    return {};
+  /* ---------------------------
+     Jisho API tooltip logic (online)
+     - cache in localStorage (key: jisho_cache)
+     - debounced requests to avoid bursts
+     --------------------------- */
+  const JISHO_CACHE_KEY = "jisho_cache_v1";
+  const jishoCache = (function(){ try { return JSON.parse(localStorage.getItem(JISHO_CACHE_KEY)) || {}; } catch { return {}; } })();
+
+  function saveJishoCache(){ try { localStorage.setItem(JISHO_CACHE_KEY, JSON.stringify(jishoCache)); } catch(e){} }
+
+  // Debounce utility
+  function debounce(fn, wait=250){
+    let t;
+    return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
   }
-})();
 
-function saveJishoCache() {
-  try {
-    localStorage.setItem(JISHO_CACHE_KEY, JSON.stringify(jishoCache));
-  } catch (e) {}
-}
-
-// Debounce utility
-function debounce(fn, wait = 250) {
-  let t;
-  return function (...args) {
-    clearTimeout(t);
-    t = setTimeout(() => fn.apply(this, args), wait);
-  };
-}
-
-// ✅ Fetch desde Jisho.org con proxy AllOrigins
-// Devuelve null o { word, reading, defs: [] }
-async function fetchJisho(word) {
-  try {
-    const q = encodeURIComponent(word);
-    // Proxy CORS: AllOrigins
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
-      "https://jisho.org/api/v1/search/words?keyword=" + q
-    )}`;
-
-    const res = await fetch(proxyUrl);
-    if (!res.ok) {
-      console.warn("Jisho HTTP error:", res.status);
+  // Fetch from Jisho; returns null or an object {word,reading,meanings[]}
+  async function fetchJisho(word){
+    try {
+      const q = encodeURIComponent(word);
+      const url = `https://jisho.org/api/v1/search/words?keyword=${q}`;
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      const data = await r.json();
+      if (!data || !data.data || data.data.length===0) return null;
+      // take first result with senses
+      const first = data.data[0];
+      const wordEntry = {
+        word: first.japanese && first.japanese[0] && first.japanese[0].word ? first.japanese[0].word : (first.japanese[0] && first.japanese[0].reading ? first.japanese[0].reading : word),
+        reading: first.japanese && first.japanese[0] && first.japanese[0].reading ? first.japanese[0].reading : "",
+        senses: (first.senses || []).map(s => s.english_definitions ? s.english_definitions.join("; ") : "").filter(Boolean)
+      };
+      return wordEntry;
+    } catch (e) {
+      console.warn("Jisho fetch error:", e);
       return null;
     }
+  }
 
-    const data = await res.json();
-    console.debug("📘 Jisho respuesta para", word, data);
-
-    if (!data || !Array.isArray(data.data) || data.data.length === 0)
-      return null;
-
-    // Tomar la primera entrada válida
-    const first =
-      data.data.find((item) => item.senses && item.senses.length > 0) ||
-      data.data[0];
-
-    const jp = (first.japanese && first.japanese[0]) || {};
-    const reading = jp.reading || "";
-    const wordResult = jp.word || jp.reading || word;
-
-    // Juntar todas las definiciones
-    let defs = [];
-    if (Array.isArray(first.senses)) {
-      for (const s of first.senses) {
-        if (Array.isArray(s.english_definitions)) {
-          defs.push(...s.english_definitions);
-        } else if (s.english_definitions) {
-          defs.push(String(s.english_definitions));
-        }
-      }
+  // get translation: check cache first, then Jisho
+  async function getTranslationFor(lemma){
+    if (!lemma) return null;
+    if (jishoCache[lemma]) return jishoCache[lemma];
+    const res = await fetchJisho(lemma);
+    if (res) {
+      jishoCache[lemma] = res;
+      saveJishoCache();
+      return res;
     }
-
-    // Quitar duplicados y limpiar
-    defs = Array.from(new Set(defs.map((d) => (d || "").trim()).filter(Boolean)));
-
-    return {
-      word: wordResult,
-      reading,
-      defs: defs.length ? defs : ["(sin definiciones encontradas)"],
-    };
-  } catch (e) {
-    console.warn("⚠️ Jisho fetch error:", e);
     return null;
   }
-}
 
-// get translation: check cache first, then Jisho
-async function getTranslationFor(lemma) {
-  if (!lemma) return null;
-  if (jishoCache[lemma]) return jishoCache[lemma];
-  const res = await fetchJisho(lemma);
-  if (res) {
-    jishoCache[lemma] = res;
-    saveJishoCache();
-    return res;
-  }
-  return null;
-}
-
-/* ---------------------------
-   Tooltip events: attach/detach
-   --------------------------- */
-function attachTooltipEvents(){
-  document.querySelectorAll(".lexword").forEach(node => {
-    // prevent duplicate
-    node.onmouseenter = null; node.onmouseleave = null; node.onclick = null;
-    node.addEventListener("mouseenter", onLexEnter);
-    node.addEventListener("mouseleave", onLexLeave);
-    node.addEventListener("click", onLexClick);
-  });
-}
-
-// Debounced wrapper to limit requests (per node)
-const _pending = new WeakMap();
-function onLexEnter(e){
-  const node = e.currentTarget;
-  const surface = node.dataset.surface || node.textContent.trim();
-  const lemma = node.dataset.lemma || surface;
-  const tooltip = node.querySelector(".tooltip");
-
-  // Show immediate info if miniDict has it
-  if (miniDict[lemma]) {
-    tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(miniDict[lemma])}</div><div class="small">Fuente: miniDict</div>`;
-    node.classList.add("show-tooltip");
-    return;
+  /* ---------------------------
+     Tooltip events: attach/detach
+     --------------------------- */
+  function attachTooltipEvents(){
+    document.querySelectorAll(".lexword").forEach(node => {
+      // prevent duplicate
+      node.onmouseenter = null; node.onmouseleave = null; node.onclick = null;
+      node.addEventListener("mouseenter", onLexEnter);
+      node.addEventListener("mouseleave", onLexLeave);
+      node.addEventListener("click", onLexClick);
+    });
   }
 
-  // show searching state
-  tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>Buscando…</div>`;
-  node.classList.add("show-tooltip");
-
-  // If cached, show immediately
-  if (jishoCache[lemma]) {
-    const entry = jishoCache[lemma];
-    tooltip.innerHTML = buildTooltipHtmlFromEntry(entry, surface);
-    return;
-  }
-
-  // else fetch (debounced per-node)
-  if (!_pending.has(node)) {
-    const fn = debounce(async () => {
-      try {
-        const entry = await getTranslationFor(lemma);
-        const tip = node.querySelector(".tooltip");
-        if (entry) {
-          tip.innerHTML = buildTooltipHtmlFromEntry(entry, surface);
-        } else {
-          // fallback: reading if rt present, else no results
-          const rt = node.querySelector("rt");
-          const fallback = rt ? `Lectura: ${rt.textContent}` : "(sin resultados)";
-          tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(fallback)}</div><div class="small">Fuente: Jisho.org</div>`;
-        }
-      } catch (err) {
-        const tip = node.querySelector(".tooltip");
-        tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>(error al consultar)</div>`;
-      }
-    }, 150);
-    _pending.set(node, fn);
-  }
-  _pending.get(node)();
-}
-
-function buildTooltipHtmlFromEntry(entry, surface){
-  // entry: {word, reading, defs: []}
-  const title = escapeHtml(surface);
-  const reading = entry.reading ? ` (${escapeHtml(entry.reading)})` : "";
-  const defsArr = Array.isArray(entry.defs) ? entry.defs : [];
-  const defsHtml = defsArr.length ? defsArr.slice(0,3).map(d => escapeHtml(d)).join("<br>") : "(sin definiciones)";
-  return `<div class="title">${title}${reading}</div><div>${defsHtml}</div><div class="small">Fuente: Jisho.org</div>`;
-}
-
-function onLexLeave(e){
-  const node = e.currentTarget;
-  hideTooltipFor(node);
-}
-function onLexClick(e){
-  const node = e.currentTarget;
-  // keep for a short while
-  showTooltipFor(node);
-  setTimeout(()=>hideTooltipFor(node), 3000);
-}
-
-function showTooltipFor(node){
-  const tip = node.querySelector(".tooltip");
-  if (tip && tip.innerHTML.trim()==="") {
+  // Debounced wrapper to limit requests (per node)
+  const _pending = new WeakMap();
+  function onLexEnter(e){
+    const node = e.currentTarget;
+    // show immediate reading/mini if available
     const surface = node.dataset.surface || node.textContent.trim();
-    const rt = node.querySelector("rt");
-    tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${rt ? "Lectura: "+escapeHtml(rt.textContent) : "(sin datos)"} </div>`;
-  }
-  node.classList.add("show-tooltip");
-}
-function hideTooltipFor(node){
-  const tip = node.querySelector(".tooltip");
-  if (tip) tip.innerHTML = "";
-  node.classList.remove("show-tooltip");
-}
+    const lemma = node.dataset.lemma || surface;
+    // immediate tooltip while fetching
+    const tooltip = node.querySelector(".tooltip");
+    if (miniDict[lemma]) {
+      tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(miniDict[lemma])}</div><div class="small">Fuente: miniDict</div>`;
+      node.classList.add("show-tooltip");
+      return;
+    } else {
+      tooltip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>Buscando…</div>`;
+      node.classList.add("show-tooltip");
+    }
 
+    // if in cache, show quickly
+    if (jishoCache[lemma]) {
+      const entry = jishoCache[lemma];
+      tooltip.innerHTML = buildTooltipHtml(entry, surface);
+      return;
+    }
+
+    // else fetch (debounced per-node)
+    if (!_pending.has(node)) {
+      const fn = debounce(async () => {
+        try {
+          const entry = await getTranslationFor(lemma);
+          const tip = node.querySelector(".tooltip");
+          if (entry) {
+            tip.innerHTML = buildTooltipHtml(entry, surface);
+          } else {
+            // no result: show reading if any (rt)
+            const rt = node.querySelector("rt");
+            const fallback = rt ? `Lectura: ${rt.textContent}` : "(sin resultados)";
+            tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${escapeHtml(fallback)}</div><div class="small">Fuente: Jisho.org</div>`;
+          }
+        } catch (err) {
+          const tip = node.querySelector(".tooltip");
+          tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>(error al consultar)</div>`;
+        }
+      }, 120); // slight debounce
+      _pending.set(node, fn);
+    }
+    // call
+    _pending.get(node)();
+  }
+
+  function buildTooltipHtml(entry, surface){
+    // entry: {word, reading, senses: [...]}
+    const title = escapeHtml(surface);
+    const reading = entry.reading ? ` (${escapeHtml(entry.reading)})` : "";
+    const defs = (entry.senses && entry.senses.length) ? entry.senses.slice(0,3).map(d=>escapeHtml(d)).join("<br>") : "(sin definiciones)";
+    return `<div class="title">${title}${reading}</div><div>${defs}</div><div class="small">Fuente: Jisho.org</div>`;
+  }
+
+  function onLexLeave(e){
+    const node = e.currentTarget;
+    hideTooltipFor(node);
+  }
+  function onLexClick(e){
+    const node = e.currentTarget;
+    // keep for a short while
+    showTooltipFor(node);
+    setTimeout(()=>hideTooltipFor(node), 3000);
+  }
+
+  function showTooltipFor(node){
+    const tip = node.querySelector(".tooltip");
+    if (tip && tip.innerHTML.trim()==="") {
+      const surface = node.dataset.surface || node.textContent.trim();
+      const rt = node.querySelector("rt");
+      tip.innerHTML = `<div class="title">${escapeHtml(surface)}</div><div>${rt ? "Lectura: "+escapeHtml(rt.textContent) : "(sin datos)"} </div>`;
+    }
+    node.classList.add("show-tooltip");
+  }
+  function hideTooltipFor(node){
+    const tip = node.querySelector(".tooltip");
+    if (tip) tip.innerHTML = "";
+    node.classList.remove("show-tooltip");
+  }
 
   /* ---------------------------
      TTS: Web Speech API
@@ -532,15 +696,7 @@ function hideTooltipFor(node){
     u.rate = parseFloat(rateInput.value) || 1;
     u.lang = "ja-JP";
     highlightSentence(index);
-    u.onend = () => {
-  if (!isPaused && index < sentences.length - 1) {
-    currentSentence++;
-    // 🔧 sincronizar traducción automáticamente
-    translationIndex = Math.min(currentSentence, allEsSentences.length - 1);
-    highlightSentence(currentSentence); // 🔧 refresca ambas vistas
-    speakSentence(currentSentence);
-  }
-};
+    u.onend = ()=>{ if (!isPaused && index < sentences.length-1){ currentSentence++; speakSentence(currentSentence); } };
     synth.speak(u);
   }
 
@@ -555,19 +711,12 @@ function hideTooltipFor(node){
     updateComparePanel(index);
   }
 
- function updateComparePanel(index){
-  const jp = sentences[index];
-  const es = allEsSentences[translationIndex];
-
-  const jpContainer = document.getElementById("jp-sentence");
-  const esContainer = document.getElementById("es-sentence");
-
-  jpContainer.innerHTML = jp ? jp.innerHTML : "（Oración japonesa aparecerá aquí）";
-  esContainer.textContent = es ? es.innerText : "（Traducción en español aparecerá aquí）";
-
-  // ✅ Reconectar tooltips también en el cuadro comparativo
-  attachTooltipEvents(); 
-}
+  function updateComparePanel(index){
+    const jp = sentences[index];
+    const es = allEsSentences[translationIndex];
+    document.getElementById("jp-sentence").innerHTML = jp ? jp.innerHTML : "（Oración japonesa aparecerá aquí）";
+    document.getElementById("es-sentence").textContent = es ? es.innerText : "（Traducción en español aparecerá aquí）";
+  }
 
   /* ---------------------------
      Controls
@@ -577,24 +726,9 @@ function hideTooltipFor(node){
     else if (isPaused) { try { synth.resume(); } catch(e){} isPaused = false; }
     else { if(!sentences.length){ renderSpanishFromRaw(document.getElementById("text2").innerText||""); renderJapaneseFromRaw(document.getElementById("text1").innerText||""); } currentSentence=0; isPaused=false; speakSentence(currentSentence); }
   }
-  function nextSentence() {
-  if (currentSentence < sentences.length - 1) {
-    currentSentence++;
-    translationIndex = Math.min(currentSentence, allEsSentences.length - 1); // 🔧 sincroniza
-    synth.cancel();
-    speakSentence(currentSentence);
-  }
-}
-
-function prevSentence() {
-  if (currentSentence > 0) {
-    currentSentence--;
-    translationIndex = Math.min(currentSentence, allEsSentences.length - 1); // 🔧 sincroniza
-    synth.cancel();
-    speakSentence(currentSentence);
-  }
-}
-function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
+  function nextSentence(){ if(currentSentence < sentences.length-1){ currentSentence++; synth.cancel(); speakSentence(currentSentence); } }
+  function prevSentence(){ if(currentSentence > 0){ currentSentence--; synth.cancel(); speakSentence(currentSentence); } }
+  function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
 
   /* ---------------------------
      Events: clicks, keyboard, buttons
@@ -654,11 +788,25 @@ function repeatSentence(){ synth.cancel(); speakSentence(currentSentence); }
     populateVoices();
     console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
   });
+  /* ---------------------------
+   MODO OSCURO / CLARO
+   --------------------------- */
+const themeToggle = document.getElementById("theme-toggle");
+themeToggle.addEventListener("click", () => {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+  themeToggle.textContent = isDark ? "🌙" : "☀️";
+  localStorage.setItem("themeMode", isDark ? "light" : "dark");
+});
+
+// Cargar preferencia previa
+const savedTheme = localStorage.getItem("themeMode");
+if (savedTheme) {
+  document.documentElement.setAttribute("data-theme", savedTheme);
+  themeToggle.textContent = savedTheme === "dark" ? "☀️" : "🌙";
+}
   </script>
+  <!-- 🔘 Botón modo oscuro -->
+  <button id="theme-toggle" title="Cambiar tema">🌙</button>
 </body>
 </html>
-
-
-
-
-
