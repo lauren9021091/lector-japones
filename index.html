@@ -645,27 +645,23 @@ async function fetchJisho(word) {
 
 
   // get translation: check cache first, then Jisho
- async function getTranslationFor(lemma) {
-  const data = await fetchJisho(lemma);
-  if (!data || !data.data || data.data.length === 0) {
-    console.warn("⚠️ Sin resultados en Jisho para:", lemma);
+ async function getTranslationFor(word) {
+  const json = await fetchJisho(word);
+  if (!json || !json.data || !json.data.length) {
+    console.warn("❌ Sin resultados para", word);
     return null;
   }
 
-  const entry = data.data[0];
-  const jp = entry.japanese?.[0]?.word || lemma;
-  const reading = entry.japanese?.[0]?.reading || "";
+  const entry = json.data[0];
+  const kanji = entry.japanese[0]?.word || word;
+  const reading = entry.japanese[0]?.reading || "";
   const meanings = entry.senses
-    .map(s => s.english_definitions.join("; "))
+    .map(s => s.english_definitions.join(", "))
     .join("; ");
 
-  return {
-    lemma,          // 🔹 palabra base analizada
-    word: jp,       // 🔹 palabra mostrable
-    reading,
-    meanings
-  };
+  return { kanji, reading, meanings };
 }
+
 
   /* ---------------------------
      Tooltip events: attach/detach
@@ -961,9 +957,13 @@ window.addEventListener("load", async () => {
       let lines = [];
 
       // Palabras consultadas
-      for (const w of consultedWords) {
-        lines.push(`${w.kanji}\t${w.reading}<br>${w.meaning}`);
-      }
+     for (const lemma of consultedWords) {
+  const entry = jishoCache[lemma] || await getTranslationFor(lemma);
+  const reading = entry?.reading ? kanaKatakanaToHiragana(entry.reading) : "";
+  const meanings = entry?.meanings || "(sin traducción)";
+  lines.push(`${lemma}\t${reading}<br>${meanings}`);
+}
+
 
       // Expresiones consultadas
       for (const e of consultedExpressions) {
