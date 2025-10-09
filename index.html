@@ -605,27 +605,20 @@ if (ext === "epub") {
   }
 
   // Fetch from Jisho; returns null or an object {word,reading,meanings[]}
-  async function fetchJisho(word){
-    try {
-      const q = encodeURIComponent(word);
-      const url = `https://jisho.org/api/v1/search/words?keyword=${q}`;
-      const r = await fetch(url);
-      if (!r.ok) return null;
-      const data = await r.json();
-      if (!data || !data.data || data.data.length===0) return null;
-      // take first result with senses
-      const first = data.data[0];
-      const wordEntry = {
-        word: first.japanese && first.japanese[0] && first.japanese[0].word ? first.japanese[0].word : (first.japanese[0] && first.japanese[0].reading ? first.japanese[0].reading : word),
-        reading: first.japanese && first.japanese[0] && first.japanese[0].reading ? first.japanese[0].reading : "",
-        senses: (first.senses || []).map(s => s.english_definitions ? s.english_definitions.join("; ") : "").filter(Boolean)
-      };
-      return wordEntry;
-    } catch (e) {
-      console.warn("Jisho fetch error:", e);
-      return null;
-    }
+  async function fetchJisho(word) {
+  const target = `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(word)}`;
+  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+
+  try {
+    const res = await fetch(proxy);
+    const data = await res.json();
+    const json = JSON.parse(data.contents);
+    return json;
+  } catch (err) {
+    console.error("Jisho fetch error:", err);
+    return null;
   }
+}
 
   // get translation: check cache first, then Jisho
   async function getTranslationFor(lemma){
@@ -921,13 +914,13 @@ window.addEventListener("load", async () => {
   try {
     await initKuromoji();
   } catch (err) {
-    console.warn("Kuromoji inicialización falló (seguimos sin furigana):", err);
+    console.warn("Kuromoji inicialización falló:", err);
   }
 
   populateVoices();
   console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
 
-  // 🪄 Exportar baraja Anki al hacer clic (solo si el botón existe)
+  // 🪄 Exportar baraja Anki
   const exportBtn = document.getElementById("export-anki");
   if (exportBtn) {
     exportBtn.addEventListener("click", async () => {
@@ -955,7 +948,7 @@ window.addEventListener("load", async () => {
     });
   }
 
-  // 🌙 MODO OSCURO / CLARO (solo si el botón existe)
+  // 🌙 MODO OSCURO / CLARO
   const themeToggle = document.getElementById("theme-toggle");
   if (themeToggle) {
     const saved = localStorage.getItem("themeMode") || "light";
