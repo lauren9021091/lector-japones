@@ -772,13 +772,18 @@ const entry = await getTranslationFor(surface, lemma);        const tip = node.q
 }
 
 
-  function buildTooltipHtml(entry, surface){
-    // entry: {word, reading, senses: [...]}
-    const title = escapeHtml(surface);
-    const reading = entry.reading ? ` (${escapeHtml(entry.reading)})` : "";
-    const defs = (entry.senses && entry.senses.length) ? entry.senses.slice(0,3).map(d=>escapeHtml(d)).join("<br>") : "(sin definiciones)";
-    return `<div class="title">${title}${reading}</div><div>${defs}</div><div class="small">Fuente: Jisho.org</div>`;
-  }
+ function buildTooltipHtml(entry, surface) {
+  const meanings = entry.meanings?.length
+    ? entry.meanings.join("; ")
+    : "(sin definiciones)";
+  const reading = entry.reading || "";
+
+  return `
+    <div class="title">${surface}</div>
+    <div class="reading">${reading}</div>
+    <div class="meanings">${meanings}</div>
+  `;
+}
 
   function onLexLeave(e){
     const node = e.currentTarget;
