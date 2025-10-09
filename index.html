@@ -605,25 +605,33 @@ if (ext === "epub") {
   }
 
 // Fetch from Jisho; returns null or an object {word,reading,meanings[]}
+// 📘 Fetch desde Jisho.org con proxy (compatible con GitHub Pages)
 async function fetchJisho(word) {
   const target = `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(word)}`;
-  const proxy = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`;
+  // ⚠️ OJO: sin la barra extra después de proxy/
+  const proxy = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`;
 
   try {
     const res = await fetch(proxy);
     const text = await res.text();
 
+    // 💡 Codetabs devuelve texto plano, no JSON directo
     let json;
     try {
       json = JSON.parse(text);
     } catch {
-      console.warn("Proxy devolvió texto, intentando extraer JSON...");
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}');
-      json = JSON.parse(text.substring(start, end + 1));
+      console.warn("Proxy devolvió texto plano, intentando extraer JSON...");
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        json = JSON.parse(text.substring(start, end + 1));
+      } else {
+        console.error("Respuesta inválida del proxy:", text.slice(0, 200));
+        return null;
+      }
     }
 
-    if (!json || !json.data || json.data.length === 0) {
+    if (!json?.data || json.data.length === 0) {
       console.warn("Sin resultados en Jisho para:", word);
       return null;
     }
