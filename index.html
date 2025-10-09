@@ -952,86 +952,62 @@ window.addEventListener("load", async () => {
   populateVoices();
   console.log("✅ Lector Japonés - Página lista. Carga archivos para probar.");
 
-  // 🪄 Exportar baraja Anki
-  const exportBtn = document.getElementById("export-anki");
-  if (exportBtn) {
-    exportBtn.addEventListener("click", async () => {
-      let lines = [];
+ // 🪄 Exportar baraja Anki
+const exportBtn = document.getElementById("export-anki");
+if (exportBtn) {
+  exportBtn.addEventListener("click", async () => {
+    let lines = [];
 
-      // Palabras consultadas
-     for (const lemma of consultedWords) {
-  const entry = jishoCache[lemma] || await getTranslationFor(lemma);
-  const reading = entry?.reading ? kanaKatakanaToHiragana(entry.reading) : "";
-  const meanings = entry?.meanings || "(sin traducción)";
-  lines.push(`${lemma}\t${reading}<br>${meanings}`);
+    // Palabras consultadas
+    for (const lemma of consultedWords) {
+      const entry = jishoCache[lemma] || await getTranslationFor(lemma);
+      const reading = entry?.reading ? kanaKatakanaToHiragana(entry.reading) : "";
+      const senses = entry?.senses ? entry.senses.join("; ") : "(sin traducción)";
+      lines.push(`${lemma}\t${reading}<br>${senses}`);
+    }
+
+    // Expresiones consultadas
+    for (const e of consultedExpressions) {
+      const hira = e.reading || getReadingFromKuromoji(e.jp);
+      lines.push(`${e.jp}\t${hira}<br>${e.translation}`);
+    }
+
+    const content = lines.join("\n");
+    const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `baraja_anki_${new Date().toISOString().split("T")[0]}.tsv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 }
 
+// 🌙 MODO OSCURO / CLARO con animación
+const themeToggle = document.getElementById("theme-toggle");
+if (themeToggle) {
+  const saved = localStorage.getItem("themeMode") || "light";
+  document.documentElement.setAttribute("data-theme", saved);
+  themeToggle.textContent = saved === "dark" ? "☀️" : "🌙";
 
-      // Expresiones consultadas
-      for (const e of consultedExpressions) {
-        const hira = e.reading || getReadingFromKuromoji(e.jp);
-        lines.push(`${e.jp}\t${hira}<br>${e.translation}`);
-      }
+  themeToggle.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    themeToggle.textContent = next === "dark" ? "☀️" : "🌙";
+    localStorage.setItem("themeMode", next);
 
-      const content = lines.join("\n");
-      const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `baraja_anki_${new Date().toISOString().split("T")[0]}.tsv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  // 🌙 MODO OSCURO / CLARO
-  const themeToggle = document.getElementById("theme-toggle");
-  if (themeToggle) {
-    const saved = localStorage.getItem("themeMode") || "light";
-    document.documentElement.setAttribute("data-theme", saved);
-    themeToggle.textContent = saved === "dark" ? "☀️" : "🌙";
-
-    themeToggle.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme");
-      const next = current === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", next);
-      themeToggle.textContent = next === "dark" ? "☀️" : "🌙";
-      localStorage.setItem("themeMode", next);
-    });
-  }
+    // Animación: breve escala y rotación
+    themeToggle.style.transition = "transform 0.4s cubic-bezier(.68,-0.55,.27,1.55)";
+    themeToggle.style.transform = "scale(1.2) rotate(360deg)";
+    setTimeout(() => {
+      themeToggle.style.transform = "";
+    }, 400);
+  });
+}
 });
 
-   // ---------------------------
-  // Exportar baraja para Anki
-  // ---------------------------
-  document.getElementById("export-anki").addEventListener("click", async () => {
-  let lines = [];
-
-  // 🔹 PALABRAS CONSULTADAS
- for (const lemma of consultedWords) {
-  const entry = jishoCache[lemma] || await getTranslationFor(lemma);
-  const reading = entry?.reading ? kanaKatakanaToHiragana(entry.reading) : "";
-  const meanings = entry?.meanings || "(sin traducción)";  // ✅ nueva línea
-  lines.push(`${lemma}\t${reading}<br>${meanings}`);
-}
-
-  // 🔹 EXPRESIONES ANALIZADAS
-  for (const exp of consultedExpressions) {
-    const { jp, reading, translation } = exp;
-    const hira = reading || getReadingFromKuromoji(jp);
-    lines.push(`${jp}\t${hira}<br>${translation || "(sin traducción)"}`);
-  }
-
-  // 📦 Crear y descargar archivo TSV
-  const content = lines.join("\n");
-  const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "baraja_anki.tsv";
-  a.click();
-  URL.revokeObjectURL(url);
-}); 
+  
  
   </script>
   <!-- 🔘 Botones superiores -->
